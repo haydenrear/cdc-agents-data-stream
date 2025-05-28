@@ -1,8 +1,8 @@
 package com.hayden.cdcagentsdatastream.config;
 
 import com.google.common.collect.Lists;
-import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStreamChunk;
-import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamChunkRepository;
+import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
+import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.commitdiffcontext.config.CommitDiffContextConfig;
 import com.hayden.commitdiffcontext.message.GitDiffCodeResponseDeser;
 import com.hayden.commitdiffmodel.codegen.types.McpContext;
@@ -37,9 +37,9 @@ import java.util.Map;
         },
         basePackages = "com.hayden.commitdiffcontext")
 @Import({CommitDiffContextTelemetryLoggingConfig.class, CommitDiffContextDisableLoggingConfig.class, DbDataSourceTrigger.class})
-@EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamChunkRepository.class},
+@EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamRepository.class},
                        basePackages = "com.hayden.commitdiffcontext")
-@EntityScan(basePackageClasses = CdcAgentsDataStreamChunk.class,
+@EntityScan(basePackageClasses = CdcAgentsDataStream.class,
             basePackages = "com.hayden.commitdiffmodel")
 @Configuration
 @Slf4j
@@ -98,6 +98,13 @@ public class CdcSubscriberConfig {
         routingDataSource.afterPropertiesSet();
 
         return routingDataSource;
+    }
+
+    @Bean
+    public CommandLineRunner kickstart() {
+
+
+        return args -> {} ;
     }
 
 }

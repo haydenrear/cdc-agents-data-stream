@@ -13,4 +13,7 @@ public interface CdcAgentsDataStreamRepository extends JpaRepository<CdcAgentsDa
     Optional<CdcAgentsDataStream> findBySessionId(String sessionId);
 
     Optional<CdcAgentsDataStream> findByThreadId(String threadId);
+
+    Optional<CdcAgentsDataStream> findByCheckpointId(String checkpointId);
+
 }

@@ -34,7 +34,7 @@ spring:
       url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
       format_sql: true
     show-sql: false
   liquibase:

@@ -1,6 +1,6 @@
 package com.hayden.cdcagentsdatastream.entity;
 
-import com.hayden.commitdiffmodel.entity.CommitDiffContext;
+import com.hayden.cdcagentsdatastream.subscriber.ctx.DataStreamContextItem;
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,8 +10,6 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,27 +30,27 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @Column(nullable = false, unique = true)
     private String sessionId;
 
-    @OneToMany(mappedBy = "dataStream", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CdcAgentsDataStreamChunk> chunks = new ArrayList<>();
+    @Column(nullable = false)
+    private Integer sequenceNumber = 0;
+
+    @Column(nullable = false)
+    private String messageType;
+
+    @Column(columnDefinition = "text")
+    private String rawContent;
+
+    @Column
+    private String checkpointId;
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> metadata;
 
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<DataStreamContextItem> ctx;
+
     @Column
     private String checkpointNamespace;
 
-    @Column
-    private String threadId;
-
-
-    /**
-     * Adds a chunk to this data stream.
-     *
-     * @param chunk the chunk to add
-     */
-    public void addChunk(CdcAgentsDataStreamChunk chunk) {
-        chunks.add(chunk);
-        chunk.setDataStream(this);
-    }
 }

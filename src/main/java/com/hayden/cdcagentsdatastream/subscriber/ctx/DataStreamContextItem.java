@@ -1,8 +1,7 @@
-package com.hayden.cdcagentsdatastream.entity;
+package com.hayden.cdcagentsdatastream.subscriber.ctx;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.hayden.commitdiffmodel.entity.CommitDiffContext;
 
 import java.time.LocalDateTime;
 

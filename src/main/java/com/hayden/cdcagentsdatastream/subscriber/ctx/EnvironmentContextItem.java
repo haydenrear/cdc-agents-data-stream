@@ -1,11 +1,6 @@
-package com.hayden.cdcagentsdatastream.entity;
+package com.hayden.cdcagentsdatastream.subscriber.ctx;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.hayden.commitdiffmodel.codegen.types.Staged;
-import com.hayden.commitdiffmodel.entity.CommitDiffContext;
-import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
