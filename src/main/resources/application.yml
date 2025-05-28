@@ -1,0 +1,52 @@
+spring:
+  session:
+    jdbc:
+      schema: classpath:db-schema/schema-postgresql.sql
+      initialize-schema: never
+  docker:
+    compose:
+      enabled: true
+      file: src/main/docker/docker-compose.yml
+      lifecycle-management: start_only
+      readiness:
+        wait: always
+      skip:
+        in-tests: false
+
+  datasource:
+    cdc-server:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+    cdc-data-stream:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+    cdc-subscriber:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+      format_sql: true
+    show-sql: false
+  liquibase:
+    enabled: false
+  cloud:
+    zookeeper:
+      enabled: false
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+spring.ai.vectorstore.type: none

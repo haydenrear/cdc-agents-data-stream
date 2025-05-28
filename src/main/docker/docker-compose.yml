@@ -1,0 +1,11 @@
+services:
+  cdc-agents-subscriber-pg:
+    image: localhost:5001/postgres-pgvector
+    container_name: cdc-agents-subscriber
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - /Users/hayde/db/cdc-agents-subscriber:/var/lib/postgresql/embedding
+    ports:
+      - "5499:5432"
