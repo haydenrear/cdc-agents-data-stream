@@ -6,12 +6,8 @@ import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.commitdiffcontext.config.CommitDiffContextConfig;
-import com.hayden.commitdiffcontext.message.GitDiffCodeResponseDeser;
-import com.hayden.commitdiffmodel.codegen.types.McpContext;
 import com.hayden.commitdiffmodel.config.CommitDiffContextDisableLoggingConfig;
 import com.hayden.commitdiffmodel.config.CommitDiffContextTelemetryLoggingConfig;
-import com.hayden.commitdiffmodel.scalar.Float32Array;
-import com.hayden.commitdiffmodel.scalar.ServerByteArray;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import com.hayden.persistence.config.CdcConfig;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
@@ -27,13 +23,11 @@ import org.springframework.boot.sql.init.DatabaseInitializationSettings;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -90,13 +84,15 @@ public class CdcSubscriberConfig {
         AbstractRoutingDataSource routingDataSource = new AbstractRoutingDataSource() {
             @Override
             protected Object determineCurrentLookupKey() {
-                return dbDataSourceTrigger.currentKey();
+                var curr = dbDataSourceTrigger.currentKey();
+                return curr;
             }
         };
 
         Map<Object, Object> resolvedDataSources = new HashMap<>();
         resolvedDataSources.put("cdc-data-stream", cdcDataStreamDataSource());
         resolvedDataSources.put("cdc-server", cdcServerDataSource());
+        resolvedDataSources.put("cdc-subscriber", cdcSubscriberDataSource());
 
         routingDataSource.setTargetDataSources(resolvedDataSources);
         routingDataSource.setDefaultTargetDataSource(cdcDataStreamDataSource());
@@ -122,12 +118,13 @@ public class CdcSubscriberConfig {
             for (var checkpoint : latestCheckpoints) {
                 String threadId = checkpoint.threadId();
                 String checkpointId = checkpoint.checkpointId();
-                java.sql.Timestamp checkpointTimestamp = checkpoint.timestamp();
+                String taskId = checkpoint.taskPath();
+                Timestamp checkpointTimestamp = checkpoint.timestamp();
                 
                 // Check if we already have this thread_id in our database
                 Optional<CdcAgentsDataStream> existingDataStream = dataStreamRepository.findBySessionId(threadId);
-                
-                boolean shouldProcess = existingDataStream.isEmpty() || existingDataStream.get().getCheckpointTimestamp() == null || checkpointTimestamp.after(existingDataStream.get().getCheckpointTimestamp());
+
+                boolean shouldProcess = existingDataStream.isEmpty() || !CheckpointDao.skipParsingCheckpoint(existingDataStream.get(), taskId, checkpointTimestamp);
                 
                 if (shouldProcess) {
                     log.info("Processing latest checkpoint data for thread_id={}, checkpoint_id={}, timestamp={}", 

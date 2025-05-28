@@ -8,18 +8,16 @@ import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
+import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import com.hayden.utilitymodule.result.Result;
 import com.hayden.utilitymodule.result.error.SingleError;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.hayden.cdcagentsdatastream.dao.CheckpointDao.skipParsingCheckpoint;
 
@@ -37,6 +35,8 @@ public class CdcAgentsDataStreamService {
     private final CheckpointDao dao;
     private final ContextService contextService;
 
+    @Autowired
+    private DbDataSourceTrigger dbDataSourceTrigger;
 
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         return retrieveAndStoreCheckpoint(threadId, checkpointId)
@@ -52,25 +52,18 @@ public class CdcAgentsDataStreamService {
      * @param checkpointId the ID of the checkpoint
      * @return a Result containing the saved chunk or an error
      */
-    @Transactional
     public Result<CdcAgentsDataStream, SingleError> convertAndSaveCheckpointData(
             CdcAgentsDataStream dataStream,
             String checkpointId,
             String threadId,
-            CheckpointDao.CheckpointData dataEntry) {
+            Map<String, CheckpointDao.CheckpointData> dataEntry) {
 
         try {
-            var data = dataEntry.checkpoint();
-            String rawContent = new String(data, StandardCharsets.UTF_8);
-
             dataStream.setCheckpointId(checkpointId);
             dataStream.setSessionId(threadId);
             dataStream.setSequenceNumber(dataStream.getSequenceNumber() + 1);
-            dataStream.setRawContent(rawContent);
-            dataStream.setCheckpointTimestamp(dataEntry.checkpointNs());
-
+            dataStream.getRawContent().putAll(dataEntry);
             return Result.ok(dataStreamRepository.save(dataStream));
-
         } catch (Exception e) {
             log.error("Failed to convert and save checkpoint data: {}", e.getMessage());
             return Result.err(SingleError.fromE(e, "Failed to convert and save checkpoint data"));
@@ -83,7 +76,6 @@ public class CdcAgentsDataStreamService {
      * @param sessionId the session ID to find or create a data stream for
      * @return the existing or newly created data stream
      */
-    @Transactional
     public CdcAgentsDataStream findOrCreateDataStream(String sessionId) {
         return dataStreamRepository.findBySessionId(sessionId)
                 .orElseGet(() -> {
@@ -100,43 +92,46 @@ public class CdcAgentsDataStreamService {
      * @param checkpointId the ID of the checkpoint
      * @return an Optional containing the deserialized checkpoint data
      */
-    @Transactional
     public Optional<CdcAgentsDataStream> retrieveAndStoreCheckpoint(String threadId, String checkpointId) {
-        try {
-            // Find or create the data stream
-            var checkpointBlobs = dao.queryCheckpointBlobs(threadId, checkpointId);
+        // Find or create the data stream
+        var checkpointBlobs = dbDataSourceTrigger.doOnKey(setKey -> {
+            setKey.setKey("cdc-subscriber");
+            return dao.queryCheckpointBlobs(threadId, checkpointId);
+        });
 
-            if (checkpointBlobs.isEmpty()) {
-                log.warn("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
-                return Optional.empty();
-            }
-
-            return checkpointBlobs.stream()
-                    .max(Comparator.comparing(CheckpointDao.CheckpointData::checkpointNs))
-                    .flatMap(cd -> {
-                        CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
-
-                        // Check if this checkpoint is already stored
-                        Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
-
-                        if (existingChunks.isPresent() && existingChunks.map(c -> skipParsingCheckpoint(cd, c)).orElse(false)) {
-                            // Return the already stored messages
-                            return Optional.of(dataStream);
-                        }
-
-                        // Store each blob as a chunk
-                        convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, cd)
-                                .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
-
-                        // Return the deserialized messages
-                        return Optional.of(dataStream);
-                    });
-
-
-        } catch (Exception e) {
-            log.error("Error retrieving checkpoint: {}", e.getMessage(), e);
+        if (checkpointBlobs.isEmpty()) {
+            log.warn("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
             return Optional.empty();
         }
+
+        checkpointBlobs.stream()
+                .collect(Collectors.groupingBy(CheckpointDao.CheckpointData::taskId,
+                        Collectors.collectingAndThen(Collectors.toList(), e -> e.stream().max(Comparator.comparing(CheckpointDao.CheckpointData::checkpointNs)))))
+                .entrySet()
+                .stream()
+                .flatMap(e -> e.getValue().stream().map(cd -> Map.entry(e.getKey(), cd)))
+                .forEach(e -> {
+
+                    var cd = e.getValue();
+
+                    CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
+
+                    // Check if this checkpoint is already stored
+                    Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
+
+                    if (existingChunks.isPresent() && existingChunks.map(c -> skipParsingCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(false)) {
+                        // Return the already stored messages
+                        return;
+                    }
+
+                    // Store each blob as a chunk
+                    convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, Map.of(e.getKey(), cd))
+                            .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
+
+                    // Return the deserialized messages
+                });
+
+        return dataStreamRepository.findBySessionId(threadId);
     }
 
     /**

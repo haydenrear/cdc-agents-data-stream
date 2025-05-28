@@ -1,12 +1,15 @@
+logging.level.com.hayden.utilitymodule.result.res_support.many.stream: INFO
+logging.level.root: INFO
+
 spring:
   session:
     jdbc:
       schema: classpath:db-schema/schema-postgresql.sql
-      initialize-schema: never
+      initialize-schema: always
   docker:
     compose:
       enabled: true
-      file: src/main/docker/docker-compose.yml
+      file: classpath:docker/docker-compose.yml
       lifecycle-management: start_only
       readiness:
         wait: always
@@ -24,8 +27,8 @@ spring:
       driver-class-name: org.postgresql.Driver
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      jdbc-url: jdbc:postgresql://localhost:5499/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5499/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
     cdc-subscriber:
       driver-class-name: org.postgresql.Driver
       username: postgres
@@ -42,7 +45,6 @@ spring:
   cloud:
     zookeeper:
       enabled: false
-
 management:
   otlp:
     metrics:

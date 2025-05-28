@@ -1,5 +1,6 @@
 package com.hayden.cdcagentsdatastream.entity;
 
+import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.DataStreamContextItem;
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
@@ -12,6 +13,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,8 +35,9 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @Column(nullable = false)
     private Integer sequenceNumber = 0;
 
-    @Column(columnDefinition = "text")
-    private String rawContent;
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, CheckpointDao.CheckpointData> rawContent = new HashMap<>();
 
     @Column
     private String checkpointId;
@@ -50,7 +53,5 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @Column
     private String checkpointNamespace;
 
-    @Column
-    private Timestamp checkpointTimestamp;
 
 }

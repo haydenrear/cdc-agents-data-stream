@@ -26,7 +26,6 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
 
 
     @Override
-    @Transactional
     public void onDataChange(String tableName, String operation, Map<String, Object> data) {
         // Process checkpoint writes - store in our data model
         if (Objects.equals(operation, "cdc_checkpoint_writes")) {
@@ -51,61 +50,22 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
 
     @Override
     public List<String> getSubscriptionName() {
-        return List.of("cdc_checkpoint_blobs", "cdc_checkpoint_migrations", "cdc_checkpoint_writes", "cdc_checkpoints");
+        return List.of("cdc_checkpoint_writes");
     }
 
     @Override
     public Optional<String> createSubscription() {
         @Language("sql") String toExec = """
-                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
+                                        CREATE FUNCTION notify_trigger() RETURNS trigger AS
                                         $$
                                         BEGIN
-                                        PERFORM pg_notify('cdc_checkpoint_blobs', json_build_object('thread_id', NEW.thread_id, 'checkpoint_ns', NEW.checkpoint_ns)::text);
-                                        RETURN NEW;
-                                        END;
-                                        $$ LANGUAGE plpgsql;
-                                        CREATE OR REPLACE TRIGGER cdc_checkpoint_blobs
-                                        AFTER INSERT OR UPDATE
-                                        ON checkpoint_blobs
-                                        FOR EACH ROW
-                                        EXECUTE FUNCTION notify_trigger();
-                
-                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
-                                        $$
-                                        BEGIN
-                                            PERFORM pg_notify('cdc_checkpoint_migrations', row_to_json(NEW)::text);
-                                            RETURN NEW;
-                                        END;
-                                        $$ LANGUAGE plpgsql;
-                                        CREATE OR REPLACE TRIGGER cdc_checkpoint_migrations
-                                            AFTER INSERT OR UPDATE
-                                            ON checkpoint_migrations
-                                            FOR EACH ROW
-                                        EXECUTE FUNCTION notify_trigger();
-                
-                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
-                                        $$
-                                        BEGIN
-                                            PERFORM pg_notify('cdc_checkpoint_writes', json_build_object('thread_id', NEW.thread_id, 'checkpoint_ns', NEW.checkpoint_ns)::text);
+                                            PERFORM pg_notify('cdc_checkpoint_writes', json_build_object('thread_id', NEW.thread_id, 'checkpoint_id', NEW.checkpoint_id)::text);
                                             RETURN NEW;
                                         END;
                                         $$ LANGUAGE plpgsql;
                                         CREATE OR REPLACE TRIGGER cdc_checkpoint_writes
                                             AFTER INSERT OR UPDATE
                                             ON checkpoint_writes
-                                            FOR EACH ROW
-                                        EXECUTE FUNCTION notify_trigger();
-                
-                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
-                                        $$
-                                        BEGIN
-                                            PERFORM pg_notify('cdc_checkpoints', json_build_object('thread_id', NEW.thread_id, 'checkpoint_ns', NEW.checkpoint_ns)::text);
-                                            RETURN NEW;
-                                        END;
-                                        $$ LANGUAGE plpgsql;
-                                        CREATE OR REPLACE TRIGGER cdc_checkpoints
-                                            AFTER INSERT OR UPDATE
-                                            ON postgres.public.checkpoints
                                             FOR EACH ROW
                                         EXECUTE FUNCTION notify_trigger();
                 """;

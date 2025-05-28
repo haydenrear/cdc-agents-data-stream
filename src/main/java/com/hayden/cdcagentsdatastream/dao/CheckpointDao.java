@@ -2,17 +2,16 @@ package com.hayden.cdcagentsdatastream.dao;
 
 import com.google.common.collect.Lists;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
-import io.micrometer.common.util.StringUtils;
+import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.Timestamp;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Component
 @RequiredArgsConstructor
@@ -21,103 +20,175 @@ public class CheckpointDao {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public record CheckpointData(byte[] checkpoint, Timestamp checkpointNs, String threadId, String checkpointId) {}
+    @Autowired
+    private DbDataSourceTrigger dbDataSourceTrigger;
 
-    public record LatestCheckpoints(String threadId, String checkpointId, Timestamp timestamp) {}
+    public record CheckpointData(byte[] checkpoint, Timestamp checkpointNs, String threadId, String checkpointId,
+                                 String taskId) {
+    }
 
-    public List<LatestCheckpoints> queryLatestCheckpoint(String threadId) {
-        List<LatestCheckpoints> latestCheckpoints = jdbcTemplate.query(
+    public record LatestCheckpoints(String threadId, String checkpointId, Timestamp timestamp, String taskPath) {
+    }
+
+    private @NotNull List<LatestCheckpoints> doQueryLatestCheckpoint(String threadId, String taskId) {
+        var ck = jdbcTemplate.query(
                 """
-                        WITH ranked_checkpoints AS (\
-                            SELECT \
-                                cw.thread_id, \
-                                cw.checkpoint_id, \
-                                timestamptz(c.checkpoint->>'ts') as checkpoint_timestamp, \
-                                ROW_NUMBER() OVER (PARTITION BY cw.thread_id ORDER BY timestamptz(c.checkpoint->>'ts') DESC) as rn \
-                            FROM checkpoint_writes cw \
-                            INNER JOIN checkpoints c ON c.checkpoint_id = cw.checkpoint_id \
-                            WHERE cw.channel = 'messages' AND cw.type = 'list' \
-                        ) \
-                        SELECT thread_id, checkpoint_id, checkpoint_timestamp \
-                        FROM ranked_checkpoints \
-                        WHERE rn = 1
-                        AND thread_id = ?
+                        WITH ranked_checkpoints AS (
+                            SELECT
+                                cw.thread_id,
+                                cw.checkpoint_id,
+                                timestamptz(c.checkpoint->>'ts') as checkpoint_timestamp,
+                                cw.task_path,
+                                ROW_NUMBER() OVER (PARTITION BY cw.thread_id ORDER BY timestamptz(c.checkpoint->>'ts') DESC) as rn
+                            FROM checkpoint_writes cw
+                            INNER JOIN checkpoints c ON c.checkpoint_id = cw.checkpoint_id
+                            WHERE cw.channel = 'messages' AND cw.type = 'list'
+                        )
+                        SELECT thread_id, checkpoint_id, checkpoint_timestamp, task_path, rn
+                        FROM ranked_checkpoints
+                        WHERE thread_id = ? AND task_path = ?
+                        ORDER BY rn
+                        LIMIT 1
                         """,
-                (rs, rowNum) -> new LatestCheckpoints(rs.getString("thread_id"),
-                        rs.getString("checkpoint_id"),
-                        rs.getTimestamp("checkpoint_timestamp")),
-                threadId);
+                (rs, rowNum) -> {
+                    return new LatestCheckpoints(
+                            rs.getString("thread_id"),
+                            rs.getString("checkpoint_id"),
+                            rs.getTimestamp("checkpoint_timestamp"),
+                            rs.getString("task_path"));
+                },
+                threadId, taskId);
 
-        return latestCheckpoints;
+        return ck;
     }
 
     public List<LatestCheckpoints> queryLatestCheckpoints() {
-        List<LatestCheckpoints> latestCheckpoints = jdbcTemplate.query(
-                """
-                        WITH ranked_checkpoints AS (\
-                            SELECT \
-                                cw.thread_id, \
-                                cw.checkpoint_id, \
-                                timestamptz(c.checkpoint->>'ts') as checkpoint_timestamp, \
-                                ROW_NUMBER() OVER (PARTITION BY cw.thread_id ORDER BY timestamptz(c.checkpoint->>'ts') DESC) as rn \
-                            FROM checkpoint_writes cw \
-                            INNER JOIN checkpoints c ON c.checkpoint_id = cw.checkpoint_id \
-                            WHERE cw.channel = 'messages' AND cw.type = 'list' \
-                        ) \
-                        SELECT thread_id, checkpoint_id, checkpoint_timestamp \
-                        FROM ranked_checkpoints \
-                        WHERE rn = 1""",
-                (rs, rowNum) -> new LatestCheckpoints(rs.getString("thread_id"),
-                        rs.getString("checkpoint_id"),
-                        rs.getTimestamp("checkpoint_timestamp")));
+        return dbDataSourceTrigger.doOnKey(setKey -> {
+            setKey.setKey("cdc-subscriber");
+            return allTaskPaths().stream()
+                    .flatMap(taskPath -> {
+                        var ck = jdbcTemplate.query(
+                                """
+                                        WITH ranked_checkpoints AS (\
+                                            SELECT \
+                                                cw.thread_id, \
+                                                cw.checkpoint_id, \
+                                                timestamptz(c.checkpoint->>'ts') as checkpoint_timestamp, \
+                                                cw.task_path,\
+                                                ROW_NUMBER() OVER (PARTITION BY cw.thread_id ORDER BY timestamptz(c.checkpoint->>'ts') DESC) as rn \
+                                            FROM checkpoint_writes cw \
+                                            INNER JOIN checkpoints c ON c.checkpoint_id = cw.checkpoint_id \
+                                            WHERE cw.channel = 'messages' AND cw.type = 'list' \
+                                        ) \
+                                        SELECT thread_id, checkpoint_id, checkpoint_timestamp, task_path, rn \
+                                        FROM ranked_checkpoints \
+                                        WHERE task_path = ?
+                                        ORDER BY rn
+                                        LIMIT 1
+                                        """,
+                                (rs, rowNum) -> new LatestCheckpoints(rs.getString("thread_id"),
+                                        rs.getString("checkpoint_id"),
+                                        rs.getTimestamp("checkpoint_timestamp"),
+                                        rs.getString("task_path")),
+                                taskPath);
+                        return ck.stream();
+                    })
+                    .toList();
+        });
 
-        return latestCheckpoints;
 
     }
 
     public @NotNull List<CheckpointData> queryCheckpointBlobs(String threadId, String checkpointId) {
-        List<CheckpointData> checkpointBlobs = jdbcTemplate.query(
-            """
-            SELECT\
-                timestamptz(ct.checkpoint->>'ts') as ts,\
-                c.blob as checkpoint_blob,\
-                ct.checkpoint AS checkpoint
-            FROM checkpoint_writes c
-            INNER JOIN checkpoints ct\
-                ON ct.checkpoint_id = c.checkpoint_id
-            WHERE c.thread_id = ? AND c.checkpoint_id = ?
-            AND c.channel = 'messages' AND c.type = 'list'
-            ORDER BY ts DESC
-            LIMIT 1
-            """,
-            (rs, rowNum) -> new CheckpointData(
-                    rs.getBytes("checkpoint_blob"),
-                    rs.getTimestamp("ts"),
-                    threadId,
-                    checkpointId),
-                threadId, checkpointId
+        return dbDataSourceTrigger.doOnKey(setKey -> {
+            setKey.setKey("cdc-subscriber");
+            return doQueryCheckpointBlobs(threadId, checkpointId);
+        });
+
+    }
+
+    private List<CheckpointData> doQueryCheckpointBlobs(String threadId, String checkpointId) {
+        var taskPaths = queryTaskPaths(threadId, checkpointId);
+
+        return taskPaths.stream()
+                .flatMap(tp -> queryCheckpointBlobForTask(threadId, checkpointId, tp).stream())
+                .toList();
+    }
+
+    private @NotNull List<String> queryTaskPaths(String threadId, String checkpointId) {
+        var taskPaths = jdbcTemplate.query(
+                """
+                        SELECT distinct t.task_path
+                        FROM checkpoint_writes t
+                        WHERE t.thread_id = ? AND t.checkpoint_id = ?
+                        """,
+                (rs, rowNum) -> rs.getString("task_path"),
+                threadId, checkpointId);
+        return taskPaths;
+    }
+
+    private @NotNull List<String> queryTaskPaths(String threadId) {
+        var taskPaths = jdbcTemplate.query(
+                """
+                        SELECT distinct t.task_path
+                        FROM checkpoint_writes t
+                        WHERE t.thread_id = ?
+                        """,
+                (rs, rowNum) -> rs.getString("task_path"),
+                threadId);
+        return taskPaths;
+    }
+
+    private @NotNull List<String> allTaskPaths() {
+        var taskPaths = jdbcTemplate.query(
+                """
+                        SELECT distinct t.task_path
+                        FROM checkpoint_writes t
+                        """,
+                (rs, rowNum) -> rs.getString("task_path"));
+        return taskPaths;
+    }
+
+
+    private @NotNull List<CheckpointData> queryCheckpointBlobForTask(String threadId, String checkpointId, String tp) {
+        var checkpointBlobs = jdbcTemplate.query(
+                """
+                        SELECT\
+                            timestamptz(ct.checkpoint->>'ts') as ts,\
+                            c.blob as checkpoint_blob,\
+                            ct.checkpoint AS checkpoint
+                        FROM checkpoint_writes c
+                        INNER JOIN checkpoints ct\
+                            ON ct.checkpoint_id = c.checkpoint_id
+                        WHERE c.thread_id = ? AND c.checkpoint_id = ?
+                        AND c.channel = 'messages' AND c.type = 'list' AND c.task_path = ?
+                        ORDER BY ts DESC
+                        LIMIT 1
+                        """,
+                (rs, rowNum) -> new CheckpointData(rs.getBytes("checkpoint_blob"),rs.getTimestamp("ts"), threadId, checkpointId, tp),
+                threadId, checkpointId, tp
         );
 
         if (checkpointBlobs.isEmpty()) {
-            return checkpointBlobs;
+            return new ArrayList<>();
         }
 
         var cb = checkpointBlobs.getFirst();
-
         return validateMostRecentCheckpoint(cb);
     }
 
     private List<CheckpointData> validateMostRecentCheckpoint(CheckpointData checkpoint) {
         String threadId = checkpoint.threadId;
         String checkpointId = checkpoint.checkpointId;
-        var latest = queryLatestCheckpoint(threadId);
+        String task = checkpoint.taskId;
+        var latest = doQueryLatestCheckpoint(threadId, task);
         return latest.stream().max(Comparator.comparing(s -> s.timestamp))
                 .filter(lc -> Objects.nonNull(lc.checkpointId))
                 .filter(s -> !Objects.equals(s.checkpointId, checkpointId))
                 .map(nF -> {
                     log.error("Found strange issue where saving less recent checkpoint {} for thread id {}, checkpoint id {}. Querying for new checkpoint.",
                             checkpointId, threadId, nF.checkpointId);
-                    var queries = queryCheckpointBlobs(threadId, nF.checkpointId);
+                    var queries = queryCheckpointBlobForTask(threadId, nF.checkpointId, task);
                     if (queries.isEmpty()) {
                         log.error("Error on error! Didn't find checkpoint that was found earlier!");
                         return Lists.newArrayList(checkpoint);
@@ -128,12 +199,21 @@ public class CheckpointDao {
                 .orElse(Lists.newArrayList(checkpoint));
     }
 
-    public static boolean skipParsingCheckpoint(CheckpointData cd, CdcAgentsDataStream c) {
-        boolean isBlank = StringUtils.isBlank(c.getRawContent());
+    public static boolean skipParsingCheckpoint(CdcAgentsDataStream c, String taskId, Timestamp checkpointNs) {
+        if (c.getRawContent() == null || !c.getRawContent().containsKey(taskId))  {
+            return false;
+        }
+        CheckpointData thisTask = c.getRawContent().get(taskId);
+        byte[] checkpoint = thisTask.checkpoint();
+        boolean isBlank = checkpoint == null || checkpoint.length == 0;
+
         if (isBlank)
             return false;
 
-        return c.getCheckpointTimestamp().equals(cd.checkpointNs) || c.getCheckpointTimestamp().after(cd.checkpointNs);
+        if (thisTask.checkpointNs != null)
+            return thisTask.checkpointNs.equals(checkpointNs) || thisTask.checkpointNs.after(checkpointNs);
+
+        return false;
     }
 
 
