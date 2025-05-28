@@ -61,12 +61,33 @@ public class CdcAgentsDataStreamService {
             dataStream.setCheckpointId(checkpointId);
             dataStream.setSessionId(threadId);
             dataStream.setSequenceNumber(dataStream.getSequenceNumber() + 1);
-            dataStream.getRawContent().putAll(dataEntry);
+            mergeAdd(dataStream, dataEntry);
             return Result.ok(dataStreamRepository.save(dataStream));
         } catch (Exception e) {
             log.error("Failed to convert and save checkpoint data: {}", e.getMessage());
             return Result.err(SingleError.fromE(e, "Failed to convert and save checkpoint data"));
         }
+    }
+
+    private static void mergeAdd(CdcAgentsDataStream dataStream, Map<String, CheckpointDao.CheckpointData> dataEntry) {
+        Map<String, List<CheckpointDao.CheckpointData>> rawContent = dataStream.getRawContent();
+        dataEntry.forEach((key, toAdd) -> {
+            rawContent.compute(key, (k,p) -> {
+                if (p == null) {
+                    p = new ArrayList<>();
+                    p.add(toAdd);
+                    return p;
+                } else if (k.contains("__start__")) {
+                    // we want special keeping of all previous __start__
+                    p.add(toAdd);
+                    return p;
+                } else {
+                    p.clear();
+                    p.add(toAdd);
+                    return p;
+                }
+            });
+        });
     }
 
     /**

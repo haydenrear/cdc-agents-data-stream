@@ -203,15 +203,26 @@ public class CheckpointDao {
         if (c.getRawContent() == null || !c.getRawContent().containsKey(taskId))  {
             return false;
         }
-        CheckpointData thisTask = c.getRawContent().get(taskId);
-        byte[] checkpoint = thisTask.checkpoint();
+        var thisTask = c.getRawContent().get(taskId);
+        if (thisTask == null)
+            return false;
+
+        if (thisTask.isEmpty())
+            return false;
+
+        var thisTaskCheckpoint = thisTask.stream()
+                .max(Comparator.comparing(cd -> cd.checkpointNs))
+                .orElse(null);
+
+        byte[] checkpoint = thisTaskCheckpoint.checkpoint();
+
         boolean isBlank = checkpoint == null || checkpoint.length == 0;
 
         if (isBlank)
             return false;
 
-        if (thisTask.checkpointNs != null)
-            return thisTask.checkpointNs.equals(checkpointNs) || thisTask.checkpointNs.after(checkpointNs);
+        if (thisTaskCheckpoint.checkpointNs != null)
+            return thisTaskCheckpoint.checkpointNs.equals(checkpointNs) || thisTaskCheckpoint.checkpointNs.after(checkpointNs);
 
         return false;
     }

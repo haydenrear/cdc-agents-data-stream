@@ -37,7 +37,7 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, CheckpointDao.CheckpointData> rawContent = new HashMap<>();
+    private Map<String, List<CheckpointDao.CheckpointData>> rawContent = new HashMap<>();
 
     @Column
     private String checkpointId;
