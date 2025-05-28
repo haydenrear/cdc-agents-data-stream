@@ -44,7 +44,6 @@ public class CdcAgentsDataStreamService {
                 .findAny();
     }
 
-
     /**
      * Converts a byte array of checkpoint data into a data stream chunk and saves it.
      *
