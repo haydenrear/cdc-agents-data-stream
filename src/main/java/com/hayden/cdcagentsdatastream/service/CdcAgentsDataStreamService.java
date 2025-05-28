@@ -50,7 +50,6 @@ public class CdcAgentsDataStreamService {
      *
      * @param dataStream the data stream to associate the chunk with
      * @param checkpointId the ID of the checkpoint
-     * @param data the checkpoint data as a byte array
      * @return a Result containing the saved chunk or an error
      */
     @Transactional
@@ -61,11 +60,8 @@ public class CdcAgentsDataStreamService {
             CheckpointDao.CheckpointData dataEntry) {
 
         try {
-
-
             var data = dataEntry.checkpoint();
             String rawContent = new String(data, StandardCharsets.UTF_8);
-
 
             dataStream.setCheckpointId(checkpointId);
             dataStream.setSessionId(threadId);
@@ -121,7 +117,7 @@ public class CdcAgentsDataStreamService {
                         CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
 
                         // Check if this checkpoint is already stored
-                        Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(checkpointId);
+                        Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
 
                         if (existingChunks.isPresent() && existingChunks.map(c -> skipParsingCheckpoint(cd, c)).orElse(false)) {
                             // Return the already stored messages
@@ -129,7 +125,7 @@ public class CdcAgentsDataStreamService {
                         }
 
                         // Store each blob as a chunk
-                        convertAndSaveCheckpointData(dataStream, checkpointId, threadId, cd)
+                        convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, cd)
                                 .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
 
                         // Return the deserialized messages

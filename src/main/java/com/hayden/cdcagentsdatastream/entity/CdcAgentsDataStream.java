@@ -20,9 +20,7 @@ import java.util.Map;
  * Each data stream is associated with a session and contains chunks of data.
  */
 @Entity
-@Table(name = "cdc_agents_data_stream", indexes = {
-        @Index(name = "idx_cdc_agents_data_stream_session_id", columnList = "sessionId", unique = true)
-})
+@Table(name = "cdc_agents_data_stream")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
