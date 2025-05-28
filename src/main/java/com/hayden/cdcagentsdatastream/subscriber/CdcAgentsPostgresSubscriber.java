@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +22,7 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
-    private CheckpointDao dao;
-    @Autowired
-    private ContextService contextService;
+    private CdcAgentsDataStreamService service;
 
 
     @Override
@@ -40,8 +39,7 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
 
                     if (threadId != null && checkpointId != null) {
                         // Retrieve and store the checkpoint data
-                        dao.retrieveAndStoreCheckpoint(threadId, checkpointId)
-                                .ifPresent(contextService::addCtx);
+                        service.doReadStreamItem(threadId, checkpointId);
                     }
                 } catch (JsonProcessingException e) {
                     log.error("Error processing checkpoint writes: {}", e.getMessage(), e);

@@ -1,8 +1,10 @@
 package com.hayden.cdcagentsdatastream.config;
 
 import com.google.common.collect.Lists;
+import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
+import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.commitdiffcontext.config.CommitDiffContextConfig;
 import com.hayden.commitdiffcontext.message.GitDiffCodeResponseDeser;
 import com.hayden.commitdiffmodel.codegen.types.McpContext;
@@ -25,11 +27,15 @@ import org.springframework.boot.sql.init.DatabaseInitializationSettings;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 import javax.sql.DataSource;
+import java.sql.Timestamp;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ComponentScan(
         basePackageClasses = {
@@ -101,10 +107,43 @@ public class CdcSubscriberConfig {
     }
 
     @Bean
-    public CommandLineRunner kickstart() {
+    public CommandLineRunner kickstart(CdcAgentsDataStreamService streamService,
+                                       CheckpointDao checkpointDao,
+                                       CdcAgentsDataStreamRepository dataStreamRepository) {
+        return args -> {
+            log.info("Starting checkpoint data processing...");
 
+            var latestCheckpoints = checkpointDao.queryLatestCheckpoints();
 
-        return args -> {} ;
+            log.info("Found {} thread_ids with latest checkpoints to process", latestCheckpoints.size());
+
+            int processedNum = 0;
+
+            for (var checkpoint : latestCheckpoints) {
+                String threadId = checkpoint.threadId();
+                String checkpointId = checkpoint.checkpointId();
+                java.sql.Timestamp checkpointTimestamp = checkpoint.timestamp();
+                
+                // Check if we already have this thread_id in our database
+                Optional<CdcAgentsDataStream> existingDataStream = dataStreamRepository.findBySessionId(threadId);
+                
+                boolean shouldProcess = existingDataStream.isEmpty() || existingDataStream.get().getCheckpointTimestamp() == null || checkpointTimestamp.after(existingDataStream.get().getCheckpointTimestamp());
+                
+                if (shouldProcess) {
+                    log.info("Processing latest checkpoint data for thread_id={}, checkpoint_id={}, timestamp={}", 
+                             threadId, checkpointId, checkpointTimestamp);
+                    streamService.doReadStreamItem(threadId, checkpointId)
+                        .ifPresentOrElse(
+                            dataStream -> log.info("Successfully processed data for thread_id={}, checkpoint_id={}", threadId, checkpointId),
+                            () -> log.warn("No data processed for thread_id={}, checkpoint_id={}", threadId, checkpointId));
+                    processedNum += 1;
+                } else {
+                    log.info("Skipping thread_id={}, checkpoint_id={} - already have newer or equal data", threadId, checkpointId);
+                }
+            }
+
+            log.info("Finished checkpoint data processing - processed {} checkpoints into db.", processedNum);
+        };
     }
 
 }

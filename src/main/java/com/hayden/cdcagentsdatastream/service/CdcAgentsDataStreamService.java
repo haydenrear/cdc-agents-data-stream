@@ -7,6 +7,7 @@ import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
+import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
 import com.hayden.utilitymodule.result.Result;
 import com.hayden.utilitymodule.result.error.SingleError;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 
+import static com.hayden.cdcagentsdatastream.dao.CheckpointDao.skipParsingCheckpoint;
+
 /**
  * Service for converting between JSON message data and Java objects.
  * Handles serialization and deserialization of checkpoint messages.
@@ -31,33 +34,16 @@ public class CdcAgentsDataStreamService {
 
     private final ObjectMapper objectMapper;
     private final CdcAgentsDataStreamRepository dataStreamRepository;
+    private final CheckpointDao dao;
+    private final ContextService contextService;
 
-    /**
-     * Deserializes a JSON string into a list of BaseMessage objects.
-     *
-     * @param json the JSON string to deserialize
-     * @return a Result containing the list of BaseMessage objects or an error
-     */
-    public Result<List<BaseMessage>, SingleError> deserializeMessages(String json) {
-        try {
-            List<BaseMessage> messages = objectMapper.readValue(json, new TypeReference<>() {});
-            return Result.ok(messages);
-        } catch (JsonProcessingException e) {
-            log.error("Failed to deserialize messages: {}", e.getMessage());
-            return Result.err(SingleError.fromE(e, "Failed to deserialize messages"));
-        }
+
+    public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
+        return retrieveAndStoreCheckpoint(threadId, checkpointId)
+                .stream().peek(contextService::addCtx)
+                .findAny();
     }
 
-    public Result<LocalDateTime, SingleError> retrieveTimestamp(byte[] json) {
-        try {
-            Map<String, Object> messages = objectMapper.readValue(json, new TypeReference<>() {});
-            return Result.ok(LocalDateTime.parse(String.valueOf(messages.get("ts"))));
-        } catch (IOException |
-                 DateTimeParseException e) {
-            log.error("Failed to deserialize messages: {}", e.getMessage());
-            return Result.err(SingleError.fromE(e, "Failed to deserialize messages"));
-        }
-    }
 
     /**
      * Converts a byte array of checkpoint data into a data stream chunk and saves it.
@@ -69,11 +55,11 @@ public class CdcAgentsDataStreamService {
      */
     @Transactional
     public Result<CdcAgentsDataStream, SingleError> convertAndSaveCheckpointData(
-            CdcAgentsDataStream dataStream, 
+            CdcAgentsDataStream dataStream,
             String checkpointId,
             String threadId,
             CheckpointDao.CheckpointData dataEntry) {
-        
+
         try {
 
 
@@ -109,6 +95,68 @@ public class CdcAgentsDataStreamService {
                     newDataStream.setSessionId(sessionId);
                     return dataStreamRepository.save(newDataStream);
                 });
+    }
+
+    /**
+     * Retrieves checkpoint data from the checkpoint_writes table and stores it in the data stream model.
+     *
+     * @param threadId the thread ID of the checkpoint
+     * @param checkpointId the ID of the checkpoint
+     * @return an Optional containing the deserialized checkpoint data
+     */
+    @Transactional
+    public Optional<CdcAgentsDataStream> retrieveAndStoreCheckpoint(String threadId, String checkpointId) {
+        try {
+            // Find or create the data stream
+            var checkpointBlobs = dao.queryCheckpointBlobs(threadId, checkpointId);
+
+            if (checkpointBlobs.isEmpty()) {
+                log.warn("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
+                return Optional.empty();
+            }
+
+            return checkpointBlobs.stream()
+                    .max(Comparator.comparing(CheckpointDao.CheckpointData::checkpointNs))
+                    .flatMap(cd -> {
+                        CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
+
+                        // Check if this checkpoint is already stored
+                        Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(checkpointId);
+
+                        if (existingChunks.isPresent() && existingChunks.map(c -> skipParsingCheckpoint(cd, c)).orElse(false)) {
+                            // Return the already stored messages
+                            return Optional.of(dataStream);
+                        }
+
+                        // Store each blob as a chunk
+                        convertAndSaveCheckpointData(dataStream, checkpointId, threadId, cd)
+                                .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
+
+                        // Return the deserialized messages
+                        return Optional.of(dataStream);
+                    });
+
+
+        } catch (Exception e) {
+            log.error("Error retrieving checkpoint: {}", e.getMessage(), e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Deserializes a JSON string into a list of BaseMessage objects.
+     *
+     * @param json the JSON string to deserialize
+     * @return a Result containing the list of BaseMessage objects or an error
+     */
+    public Result<List<BaseMessage>, SingleError> deserializeMessages(String json) {
+        try {
+            List<BaseMessage> messages = objectMapper.readValue(json, new TypeReference<>() {});
+            return Result.ok(messages);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize messages: {}", e.getMessage());
+            return Result.err(SingleError.fromE(e, "Failed to deserialize messages"));
+        }
     }
 
 }

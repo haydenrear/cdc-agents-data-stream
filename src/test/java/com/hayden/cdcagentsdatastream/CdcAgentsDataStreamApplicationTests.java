@@ -1,6 +1,7 @@
 package com.hayden.cdcagentsdatastream;
 
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.subscriber.CdcAgentsPostgresSubscriber;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
@@ -28,10 +29,12 @@ class CdcAgentsDataStreamApplicationTests {
 
     @Autowired
     CheckpointDao dao;
+    @Autowired
+    CdcAgentsDataStreamService s;
 
     @Test
     public void testDao() {
-        var found = dao.retrieveAndStoreCheckpoint("977e6347-d460-4aca-8b3e-4b84578b1ef6",
+        var found = s.retrieveAndStoreCheckpoint("977e6347-d460-4aca-8b3e-4b84578b1ef6",
                 "1f03beff-983b-6a50-bfff-d2bc9ff95fe4");
         System.out.println();
     }
