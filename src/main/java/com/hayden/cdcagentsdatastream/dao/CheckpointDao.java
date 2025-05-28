@@ -117,7 +117,13 @@ public class CheckpointDao {
                 .map(nF -> {
                     log.error("Found strange issue where saving less recent checkpoint {} for thread id {}, checkpoint id {}. Querying for new checkpoint.",
                             checkpointId, threadId, nF.checkpointId);
-                    return queryCheckpointBlobs(threadId, nF.checkpointId);
+                    var queries = queryCheckpointBlobs(threadId, nF.checkpointId);
+                    if (queries.isEmpty()) {
+                        log.error("Error on error! Didn't find checkpoint that was found earlier!");
+                        return Lists.newArrayList(checkpoint);
+                    }
+
+                    return queries;
                 })
                 .orElse(Lists.newArrayList(checkpoint));
     }
