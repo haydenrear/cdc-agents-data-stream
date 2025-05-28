@@ -31,7 +31,8 @@ class CdcAgentsDataStreamApplicationTests {
 
     @Test
     public void testDao() {
-        var found = dao.retrieveAndStoreCheckpoint("0f76c937-ec5d-45b7-b72f-798887989b5b", "1f03345f-70b2-60d6-8000-37341710f457");
+        var found = dao.retrieveAndStoreCheckpoint("977e6347-d460-4aca-8b3e-4b84578b1ef6",
+                "1f03beff-983b-6a50-bfff-d2bc9ff95fe4");
         System.out.println();
     }
 

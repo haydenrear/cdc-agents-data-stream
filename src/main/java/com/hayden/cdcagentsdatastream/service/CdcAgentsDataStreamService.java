@@ -3,6 +3,7 @@ package com.hayden.cdcagentsdatastream.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
@@ -13,7 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
@@ -44,6 +48,17 @@ public class CdcAgentsDataStreamService {
         }
     }
 
+    public Result<LocalDateTime, SingleError> retrieveTimestamp(byte[] json) {
+        try {
+            Map<String, Object> messages = objectMapper.readValue(json, new TypeReference<>() {});
+            return Result.ok(LocalDateTime.parse(String.valueOf(messages.get("ts"))));
+        } catch (IOException |
+                 DateTimeParseException e) {
+            log.error("Failed to deserialize messages: {}", e.getMessage());
+            return Result.err(SingleError.fromE(e, "Failed to deserialize messages"));
+        }
+    }
+
     /**
      * Converts a byte array of checkpoint data into a data stream chunk and saves it.
      *
@@ -57,26 +72,22 @@ public class CdcAgentsDataStreamService {
             CdcAgentsDataStream dataStream, 
             String checkpointId,
             String threadId,
-            byte[] data) {
+            CheckpointDao.CheckpointData dataEntry) {
         
         try {
-            // Get the next sequence number
-            // Deserialize the data
+
+
+            var data = dataEntry.checkpoint();
             String rawContent = new String(data, StandardCharsets.UTF_8);
 
-            List<BaseMessage> messages = deserializeMessages(rawContent).one().orElseRes(new ArrayList<>());
 
-            if (dataStream.getRawContent() == null || messages.stream().allMatch(bm -> Objects.nonNull(bm.getName()))) {
-                // Create and save the chunk
-                dataStream.setCheckpointId(checkpointId);
-                dataStream.setSessionId(threadId);
-                dataStream.setSequenceNumber(dataStream.getSequenceNumber() + 1);
-                dataStream.setRawContent(rawContent);
+            dataStream.setCheckpointId(checkpointId);
+            dataStream.setSessionId(threadId);
+            dataStream.setSequenceNumber(dataStream.getSequenceNumber() + 1);
+            dataStream.setRawContent(rawContent);
+            dataStream.setCheckpointTimestamp(dataEntry.checkpointNs());
 
-                return Result.ok(dataStreamRepository.save(dataStream));
-            }
-
-            return Result.empty();
+            return Result.ok(dataStreamRepository.save(dataStream));
 
         } catch (Exception e) {
             log.error("Failed to convert and save checkpoint data: {}", e.getMessage());

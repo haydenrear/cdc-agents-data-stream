@@ -10,6 +10,8 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -33,9 +35,6 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @Column(nullable = false)
     private Integer sequenceNumber = 0;
 
-    @Column(nullable = false)
-    private String messageType;
-
     @Column(columnDefinition = "text")
     private String rawContent;
 
@@ -52,5 +51,8 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column
     private String checkpointNamespace;
+
+    @Column
+    private Timestamp checkpointTimestamp;
 
 }
