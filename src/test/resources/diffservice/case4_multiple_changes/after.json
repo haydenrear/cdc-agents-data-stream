@@ -1,0 +1,26 @@
+{
+  "task1": [
+    {
+      "content": "Original line 1\nModified line 2\nOriginal line 3\nNew line 4",
+      "timestamp": 2000
+    }
+  ],
+  "task2": [
+    {
+      "content": "",
+      "timestamp": 1000
+    }
+  ],
+  "task3": [
+    {
+      "content": "Task 3 unchanged content",
+      "timestamp": 1000
+    }
+  ],
+  "task4": [
+    {
+      "content": "Newly added task content",
+      "timestamp": 2000
+    }
+  ]
+}

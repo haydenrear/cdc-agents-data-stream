@@ -1,0 +1,21 @@
+{
+  "sequenceNumber": 1,
+  "diffData": {
+    "task1": {
+      "changes": [
+        {
+          "change": {
+            "type": "insert_content",
+            "linesToAdd": {
+              "start": 0,
+              "end": 3
+            },
+            "lines": ["Line 1", "Line 2", "Line 3"]
+          },
+          "timestamp": 1000
+        }
+      ],
+      "taskId": "task1"
+    }
+  }
+}

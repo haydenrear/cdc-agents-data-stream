@@ -1,0 +1,20 @@
+services:
+  cdc-agents-test-db:
+    image: localhost:5001/postgres-pgvector
+    container_name: cdc-agents-test-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5488:5432"
+    volumes:
+      - cdc-agents-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cdc-agents-test-data:
+    driver: local

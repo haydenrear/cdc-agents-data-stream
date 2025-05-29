@@ -1,0 +1,32 @@
+{
+  "task1": [
+    {
+      "content": "Original line 1\nOriginal line 2\nOriginal line 3",
+      "timestamp": 1000
+    }
+  ],
+  "task2": [
+    {
+      "content": "Task 2 content\nto be removed",
+      "timestamp": 1000
+    }
+  ],
+  "task3": [
+    {
+      "content": "Task 3 unchanged content",
+      "timestamp": 1000
+    }
+  ],
+  "task4": [
+    {
+      "content": "Newly added content",
+      "timestamp": 1000
+    }
+  ],
+  "task5": [
+    {
+      "content": "to remove content all",
+      "timestamp": 1000
+    }
+  ]
+}

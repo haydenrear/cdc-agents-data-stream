@@ -1,0 +1,62 @@
+logging.level.com.hayden.utilitymodule.result.res_support.many.stream: INFO
+logging.level.com.hayden.cdcagentsdatastream: DEBUG
+logging.level.root: INFO
+
+spring:
+  session:
+    jdbc:
+      schema: classpath:db-schema/schema-postgresql.sql
+      initialize-schema: always
+  docker:
+    compose:
+      enabled: true
+      file: classpath:docker/docker-compose-test.yml
+      lifecycle-management: start_only
+      readiness:
+        wait: always
+      skip:
+        in-tests: false
+
+  # Configure a single database for testing
+  datasource:
+    cdc-server:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+    cdc-data-stream:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+    cdc-subscriber:
+      driver-class-name: org.postgresql.Driver
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop  # Use create-drop for tests to reset DB between runs
+      format_sql: true
+    show-sql: false
+  liquibase:
+    enabled: false
+  cloud:
+    zookeeper:
+      enabled: false
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+spring.ai.vectorstore.type: none
+
+# Disable actual external service calls during tests
+code-runner:
+  registrations: []

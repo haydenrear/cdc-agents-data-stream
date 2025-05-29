@@ -138,7 +138,8 @@ public class DiffService {
     private CheckpointDataDiff.CheckpointDataDiffItem createDiffAdd(List<CheckpointDao.CheckpointData> newValue, String taskId) {
         return createDiffFromFactory(newValue, c -> {
             var s  = new String(c.checkpoint(), Charset.defaultCharset());
-            Git.ContentChange co = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(0, s.length()), Arrays.asList(s.split(System.lineSeparator())));
+            String[] lineSep = s.split(System.lineSeparator());
+            Git.ContentChange co = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(0, lineSep.length), Arrays.asList(lineSep));
             return co;
         }, taskId);
     }
@@ -161,7 +162,8 @@ public class DiffService {
     private CheckpointDataDiff.CheckpointDataDiffItem createDiffRemove(List<CheckpointDao.CheckpointData> oldValue, String taskId) {
         return createDiffFromFactory(oldValue, c -> {
             var s  = new String(c.checkpoint(), Charset.defaultCharset());
-            Git.ContentChange co = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(0, s.length()), Arrays.asList(s.split(System.lineSeparator())));
+            List<String> lineSep = Arrays.asList(s.split(System.lineSeparator()));
+            Git.ContentChange co = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(0, lineSep.size()), lineSep);
             return co;
         }, taskId);
     }
@@ -182,7 +184,8 @@ public class DiffService {
                     return null;
                 });
 
-        var diffed = DiffUtils.diffInline(foundLeft, foundRight);
+        var diffed = DiffUtils.diff(Arrays.asList(foundLeft.split(System.lineSeparator())), Arrays.asList(foundRight.split(System.lineSeparator())));
+
         var c = diffed.getDeltas().stream()
                 .map(delta -> switch(delta) {
                     case EqualDelta ignored -> null;
@@ -191,7 +194,7 @@ public class DiffService {
                         var found = iStr.getTarget();
                         var foundSrc = iStr.getSource();
                         yield new CheckpointDataDiff.ContentChangeDiff(
-                                new Git.ContentChange.ReplaceContent(buildRemove(found),buildInsert(foundSrc) ), maxTimestamp);
+                                new Git.ContentChange.ReplaceContent(buildRemove(foundSrc), buildInsert(found)), maxTimestamp);
                     }
                     case DeleteDelta r -> {
                         var iStr = (DeleteDelta<String>) r;
@@ -217,18 +220,13 @@ public class DiffService {
     }
 
     private static Git.ContentChange.@NotNull RemoveContent buildRemove(Chunk<String> found) {
-        List<Integer> changePosition = found.getChangePosition();
-        var first = changePosition.getFirst();
-        var last = changePosition.getLast();
-        Git.ContentChange.RemoveContent remove = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(first, last), found.getLines());
+        int changePosition = found.getPosition();
+        Git.ContentChange.RemoveContent remove = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(changePosition, found.size()), found.getLines());
         return remove;
     }
 
     private static Git.ContentChange.@NotNull InsertContent buildInsert(Chunk<String> found) {
-        List<Integer> changePosition = found.getChangePosition();
-        var first = changePosition.getFirst();
-        var last = changePosition.getLast();
-        var remove = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(first, last), found.getLines());
+        var remove = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(found.getPosition(), found.size()), found.getLines());
         return remove;
     }
 

@@ -1,0 +1,134 @@
+{
+  "sequenceNumber": 1,
+  "diffData": {
+    "task5": {
+      "changes": [
+        {
+          "change": {
+            "type": "remove_content",
+            "linesRemoved": {
+              "start": 0,
+              "end": 1
+            },
+            "lines": [
+              "to remove content all"
+            ]
+          },
+          "timestamp": 1000
+        }
+      ],
+      "taskId": "task5"
+    },
+    "task1": {
+      "changes": [
+        {
+          "change": {
+            "type": "replace_content",
+            "toRemove": {
+              "type": "remove_content",
+              "linesRemoved": {
+                "start": 1,
+                "end": 1
+              },
+              "lines": [
+                "Original line 2"
+              ]
+            },
+            "toAddContent": {
+              "type": "insert_content",
+              "linesToAdd": {
+                "start": 1,
+                "end": 1
+              },
+              "lines": [
+                "Modified line 2"
+              ]
+            }
+          },
+          "timestamp": 2000
+        },
+        {
+          "change": {
+            "type": "insert_content",
+            "linesToAdd": {
+              "start": 3,
+              "end": 1
+            },
+            "lines": [
+              "New line 4"
+            ]
+          },
+          "timestamp": 2000
+        }
+      ],
+      "taskId": "task1"
+    },
+    "task2": {
+      "changes": [
+        {
+          "change": {
+            "type": "replace_content",
+            "toRemove": {
+              "type": "remove_content",
+              "linesRemoved": {
+                "start": 0,
+                "end": 2
+              },
+              "lines": [
+                "Task 2 content",
+                "to be removed"
+              ]
+            },
+            "toAddContent": {
+              "type": "insert_content",
+              "linesToAdd": {
+                "start": 0,
+                "end": 1
+              },
+              "lines": [
+                ""
+              ]
+            }
+          },
+          "timestamp": 1000
+        }
+      ],
+      "taskId": "task2"
+    },
+    "task3": {
+      "changes": [],
+      "taskId": "task3"
+    },
+    "task4": {
+      "changes": [
+        {
+          "change": {
+            "type": "replace_content",
+            "toRemove": {
+              "type": "remove_content",
+              "linesRemoved": {
+                "start": 0,
+                "end": 1
+              },
+              "lines": [
+                "Newly added content"
+              ]
+            },
+            "toAddContent": {
+              "type": "insert_content",
+              "linesToAdd": {
+                "start": 0,
+                "end": 1
+              },
+              "lines": [
+                "Newly added task content"
+              ]
+            }
+          },
+          "timestamp": 2000
+        }
+      ],
+      "taskId": "task4"
+    }
+  }
+}
