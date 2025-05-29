@@ -145,7 +145,7 @@ class CdcAgentsDataStreamApplicationTests {
 
         int num = 0;
 
-        while (num < 200) {
+        while (num < 10) {
             if (checkpoints.isEmpty()) {
                 Thread.sleep(1000);
             } else {
