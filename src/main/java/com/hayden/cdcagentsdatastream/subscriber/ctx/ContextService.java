@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
+import com.hayden.cdcagentsdatastream.service.DiffService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ public class ContextService {
     private List<ContextProvider> contextProviders = new ArrayList<>();
 
     @Autowired
-    private CdcAgentsDataStreamRepository cdcAgentsDataStreamRepository;
+    private DiffService diffService;
 
     public record WithContextAdded(CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate update,
                                    CdcAgentsDataStream withCtx) {}
@@ -43,36 +44,9 @@ public class ContextService {
             }
         }
 
-        Map<String, Object> previousCheckpoint = convertCheckpointToMap(
-            withCtx.getRawContent());
-        Map<String, Object> currentCheckpoint = convertCheckpointToMap(
-            withCtx.getRawContent());
+        // Use DiffService to process the diff between previous and current checkpoint data
+        var updated = diffService.processDiff(ds, withCtx);
 
-        withCtx.addCheckpointDiff(previousCheckpoint, currentCheckpoint);
-
-        return Optional.of(new WithContextAdded(ds, withCtx));
-    }
-
-    /**
-     * Converts checkpoint data to a simple map for diff calculation
-     */
-    private Map<String, Object> convertCheckpointToMap(
-        Map<String, List<CheckpointDao.CheckpointData>> checkpointData
-    ) {
-        if (checkpointData == null) {
-            return new HashMap<>();
-        }
-
-        Map<String, Object> result = new HashMap<>();
-        checkpointData.forEach((key, dataList) -> {
-            List<Map<String, Object>> converted = new ArrayList<>();
-            for (CheckpointDao.CheckpointData data : dataList) {
-                Map<String, Object> dataMap = new HashMap<>();
-                converted.add(dataMap);
-            }
-            result.put(key, converted);
-        });
-
-        return result;
+        return Optional.of(new WithContextAdded(ds, updated));
     }
 }

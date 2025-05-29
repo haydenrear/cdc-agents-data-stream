@@ -52,41 +52,7 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<CheckpointDataDiff> checkpointDiffs = new ArrayList<>();
 
-    /**
-     * Adds a new checkpoint diff to this data stream
-     *
-     * @param previousCheckpoint the previous checkpoint data
-     * @param currentCheckpoint the current checkpoint data
-     * @return the created diff
-     */
-    public void addCheckpointDiff(
-        Map<String, Object> previousCheckpoint,
-        Map<String, Object> currentCheckpoint
-    ) {
-        Map<String, Object> diffData = CheckpointDataDiff.calculateDiff(
-            previousCheckpoint,
-            currentCheckpoint
-        );
 
-        // Create mapping of context items to their indices
-        Map<String, Integer> contextItemReferences = new HashMap<>();
-        if (ctx != null) {
-            for (int i = 0; i < ctx.size(); i++) {
-                DataStreamContextItem item = ctx.get(i);
-                if (item.getSequenceNumber() != null) {
-                    String itemType = item.getClass().getSimpleName();
-                    contextItemReferences.put(itemType, i);
-                }
-            }
-        }
-
-        CheckpointDataDiff diff = CheckpointDataDiff.builder()
-            .sequenceNumber(this.sequenceNumber)
-            .diffData(diffData)
-            .build();
-
-        checkpointDiffs.add(diff);
-    }
 
     public synchronized void incrementSequenceNumber() {
         this.sequenceNumber++;
