@@ -35,8 +35,8 @@ spring:
       driver-class-name: org.postgresql.Driver
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5488/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      jdbc-url: jdbc:postgresql://localhost:5487/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5487/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
 
   jpa:
     hibernate:
@@ -56,7 +56,3 @@ management:
         enabled: false
 
 spring.ai.vectorstore.type: none
-
-# Disable actual external service calls during tests
-code-runner:
-  registrations: []

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,6 +46,7 @@ public class CdcAgentsDataStreamService {
             Map<String, List<CheckpointDao.CheckpointData>> afterUpdate,
             CdcAgentsDataStream beforeUpdate) {}
 
+
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         AtomicInteger i = new AtomicInteger(-1);
         return retrieveAndStoreCheckpoint(threadId, checkpointId)
@@ -55,7 +57,6 @@ public class CdcAgentsDataStreamService {
                 })
                 .map(updatable -> {
                     CdcAgentsDataStream toSave = updatable.withCtx();
-                    toSave.incrementSequenceNumber();
                     if (toSave.incrementSequenceNumber() != i.incrementAndGet()) {
                         log.error("Sequence number mismatch. Expected {} but got {}", i, toSave);
                     }
@@ -165,7 +166,7 @@ public class CdcAgentsDataStreamService {
                 convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
             } else {
                 // Check if this checkpoint is already stored
-                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
+                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(cd.checkpointId());
 
                 if (existingChunks.map(c -> doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
                     // Return the already stored messages

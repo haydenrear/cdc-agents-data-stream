@@ -1,13 +1,13 @@
-create table if not exists public.checkpoint_migrations
+create table if not exists checkpoint_migrations
 (
     v integer not null
         primary key
 );
 
-alter table public.checkpoint_migrations
+alter table checkpoint_migrations
     owner to postgres;
 
-create table if not exists public.checkpoints
+create table if not exists checkpoints
 (
     thread_id            text                      not null,
     checkpoint_ns        text  default ''::text    not null,
@@ -19,13 +19,13 @@ create table if not exists public.checkpoints
     primary key (thread_id, checkpoint_ns, checkpoint_id)
 );
 
-alter table public.checkpoints
+alter table checkpoints
     owner to postgres;
 
 create  index if not exists checkpoints_thread_id_idx
-    on public.checkpoints (thread_id);
+    on checkpoints (thread_id);
 
-create table if not exists public.checkpoint_blobs
+create table if not exists checkpoint_blobs
 (
     thread_id     text                  not null,
     checkpoint_ns text default ''::text not null,
@@ -36,13 +36,13 @@ create table if not exists public.checkpoint_blobs
     primary key (thread_id, checkpoint_ns, channel, version)
 );
 
-alter table public.checkpoint_blobs
+alter table checkpoint_blobs
     owner to postgres;
 
 create index if not exists  checkpoint_blobs_thread_id_idx
-    on public.checkpoint_blobs (thread_id);
+    on checkpoint_blobs (thread_id);
 
-create table if not exists  public.checkpoint_writes
+create table if not exists  checkpoint_writes
 (
     thread_id     text                  not null,
     checkpoint_ns text default ''::text not null,
@@ -56,9 +56,9 @@ create table if not exists  public.checkpoint_writes
     primary key (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
 );
 
-alter table public.checkpoint_writes
+alter table checkpoint_writes
     owner to postgres;
 
 create index if not exists  checkpoint_writes_thread_id_idx
-    on public.checkpoint_writes (thread_id);
+    on checkpoint_writes (thread_id);
 
