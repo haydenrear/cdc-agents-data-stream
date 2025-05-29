@@ -54,7 +54,8 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
 
 
-    public synchronized void incrementSequenceNumber() {
+    public synchronized int incrementSequenceNumber() {
         this.sequenceNumber++;
+        return this.sequenceNumber;
     }
 }

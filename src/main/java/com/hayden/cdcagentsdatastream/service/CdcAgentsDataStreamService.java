@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.hayden.cdcagentsdatastream.dao.CheckpointDao.doReplaceCheckpoint;
@@ -44,11 +46,19 @@ public class CdcAgentsDataStreamService {
             CdcAgentsDataStream beforeUpdate) {}
 
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
+        AtomicInteger i = new AtomicInteger(-1);
         return retrieveAndStoreCheckpoint(threadId, checkpointId)
-                .flatMap(contextService::addCtx)
+                .flatMap(sUpdate -> {
+                    var startingsSeq = sUpdate.beforeUpdate.getSequenceNumber();
+                    i.set(startingsSeq);
+                    return contextService.addCtx(sUpdate);
+                })
                 .map(updatable -> {
                     CdcAgentsDataStream toSave = updatable.withCtx();
                     toSave.incrementSequenceNumber();
+                    if (toSave.incrementSequenceNumber() != i.incrementAndGet()) {
+                        log.error("Sequence number mismatch. Expected {} but got {}", i, toSave);
+                    }
                     toSave.setRawContent(updatable.update().afterUpdate());
                     toSave.setSessionId(threadId);
                     return dataStreamRepository.save(toSave);
