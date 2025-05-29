@@ -11,10 +11,12 @@ import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.hayden.commitdiffmodel.model.Git;
+import com.hayden.utilitymodule.MapFunctions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.builder.Diff;
@@ -46,6 +48,9 @@ public class DiffService {
                                            CdcAgentsDataStream dataStream) {
 
         var c = getCheckpointDataDiff(dataStream, dataStream.getRawContent(), update.afterUpdate());
+
+        if (c.getDiffData().isEmpty())
+            return dataStream;
 
         dataStream.getCheckpointDiffs().add(c);
 
@@ -116,6 +121,7 @@ public class DiffService {
             }
         }
 
+        diff = MapFunctions.CollectMap(diff.entrySet().stream().filter(Predicate.not(e -> e.getValue().changes().isEmpty())));
         return new CheckpointDataDiff(seq, diff);
 
     }

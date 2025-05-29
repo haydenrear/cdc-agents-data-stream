@@ -151,7 +151,11 @@ public class CdcAgentsDataStreamService {
 
         CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
 
-        var toAddTo = dataStream.getRawContent();
+        Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
+
+        for (var t: dataStream.getRawContent().entrySet()) {
+            toAddTo.put(t.getKey(), new ArrayList<>(t.getValue()));
+        }
 
         for (var e : checkpointMap.entrySet()) {
 
@@ -166,7 +170,7 @@ public class CdcAgentsDataStreamService {
                 convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
             } else {
                 // Check if this checkpoint is already stored
-                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(cd.checkpointId());
+                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(threadId);
 
                 if (existingChunks.map(c -> doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
                     // Return the already stored messages

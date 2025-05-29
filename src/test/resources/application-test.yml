@@ -1,6 +1,7 @@
 logging.level.com.hayden.utilitymodule.result.res_support.many.stream: INFO
-logging.level.com.hayden.cdcagentsdatastream: DEBUG
+logging.level.com.hayden.cdcagentsdatastream: INFO
 logging.level.root: INFO
+logging.level.com.hayden.persistence: INFO
 
 spring:
   session:
