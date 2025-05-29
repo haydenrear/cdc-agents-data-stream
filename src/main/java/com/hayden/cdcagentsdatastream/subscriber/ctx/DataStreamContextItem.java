@@ -11,9 +11,10 @@ import java.time.LocalDateTime;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = EnvironmentContextItem.class, name = "environment")
+        @JsonSubTypes.Type(value = EnvironmentContextItem.class, name = "environment"),
+        @JsonSubTypes.Type(value = TestReportContextItem.class, name = "test-report")
 })
-public sealed interface DataStreamContextItem permits EnvironmentContextItem {
+public sealed interface DataStreamContextItem permits EnvironmentContextItem, TestReportContextItem {
     /**
      * Gets the session ID this context item is associated with.
      * @return the session ID
@@ -26,4 +27,12 @@ public sealed interface DataStreamContextItem permits EnvironmentContextItem {
      */
     LocalDateTime getCreationTime();
     
+    /**
+     * Gets the sequence number of this context item.
+     * This is used to track the order of context items and their relation to checkpoint diffs.
+     * @return the sequence number or null if not assigned
+     */
+    default Integer getSequenceNumber() {
+        return null;
+    }
 }

@@ -30,7 +30,7 @@ public class GitEnvironmentContextProvider implements ContextProvider {
      * Creates or updates an environment context item for the given session ID.
      * This collects information about git repositories and staged changes.
      *
-     * @return the created or updated environment context item
+     * @return the created or withCtx environment context item
      */
     public Optional<DataStreamContextItem> retrieveCtx(CdcAgentsDataStream stream){
         String sessionId = stream.getSessionId();
@@ -40,14 +40,14 @@ public class GitEnvironmentContextProvider implements ContextProvider {
 
             // Try to find the context using the CdcChatTraceRepository
 //            var foundContext = trigger.doWithKey(sKe -> {
-//                var prev = sKe.curr();
+//                var beforeUpdate = sKe.curr();
 //                sKe.setKey("cdc-server");
 //
 //                var foundTrace = cdcChatTraceRepository.findBy(
 //                        QCdcChatTrace.cdcChatTrace.commitDiffContext.sessionKey.eq(sessionId),
 //                        q -> q.sortBy(Sort.by(QCdcChatTrace.cdcChatTrace.updatedTime.getMetadata().getName()).descending()).first());
 //
-//                sKe.setKey(prev);
+//                sKe.setKey(beforeUpdate);
 //                return foundTrace.map(trace -> trace.getCommitDiffContext()).orElse(null);
 //            });
 
@@ -68,7 +68,7 @@ public class GitEnvironmentContextProvider implements ContextProvider {
                 // contextItem.setStagedData(collectStagedData(commitDiffContext));
             }
 
-            // Save the updated context
+            // Save the withCtx context
             return Optional.of(contextItem);
 
         } catch (Exception e) {

@@ -1,6 +1,8 @@
 package com.hayden.cdcagentsdatastream.repository;
 
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.stereotype.Repository;
@@ -13,5 +15,7 @@ public interface CdcAgentsDataStreamRepository extends JpaRepository<CdcAgentsDa
     Optional<CdcAgentsDataStream> findBySessionId(String sessionId);
 
     Optional<CdcAgentsDataStream> findByCheckpointId(String checkpointId);
+    
+    Page<CdcAgentsDataStream> findBySessionIdOrderBySequenceNumberDesc(String sessionId, Pageable pageable);
 
 }
