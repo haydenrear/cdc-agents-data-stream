@@ -68,6 +68,7 @@ public class TestReportContextProvider implements ContextProvider {
             return;
         }
 
+        // TODO: should zip the whole parent directory and save.
         try (Stream<Path> paths = Files.list(reportDir)) {
             paths.filter(Files::isRegularFile)
                     .forEach(path -> {
