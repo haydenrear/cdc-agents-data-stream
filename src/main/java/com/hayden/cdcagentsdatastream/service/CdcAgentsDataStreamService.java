@@ -79,7 +79,9 @@ public class CdcAgentsDataStreamService {
                     return p;
                 } else if (k.contains("__start__")) {
                     // we want special keeping of all previous __start__
-                    p.add(toAdd);
+                    if (p.stream().noneMatch(cd -> Objects.equals(cd.checkpointNs(), toAdd.checkpointNs()))) {
+                        p.add(toAdd);
+                    }
                     return p;
                 } else {
                     p.clear();
@@ -120,7 +122,7 @@ public class CdcAgentsDataStreamService {
         });
 
         if (checkpointBlobs.isEmpty()) {
-            log.warn("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
+            log.debug("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
             return Optional.empty();
         }
 

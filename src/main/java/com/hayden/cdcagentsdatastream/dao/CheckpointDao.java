@@ -186,8 +186,12 @@ public class CheckpointDao {
                 .filter(lc -> Objects.nonNull(lc.checkpointId))
                 .filter(s -> !Objects.equals(s.checkpointId, checkpointId))
                 .map(nF -> {
-                    log.error("Found strange issue where saving less recent checkpoint {} for thread id {}, checkpoint id {}. Querying for new checkpoint.",
-                            checkpointId, threadId, nF.checkpointId);
+                    log.debug("""
+                              Found where saving less recent checkpoint {} for thread id {}, checkpoint id {}.
+                              Querying for new checkpoint blob for thread id {}, checkpoint id {}.
+                              Will continue to query forever in if it keeps being updated quickly.
+                              """,
+                              checkpointId, threadId, nF.checkpointId, threadId, nF.checkpointId);
                     var queries = queryCheckpointBlobForTask(threadId, nF.checkpointId, task);
                     if (queries.isEmpty()) {
                         log.error("Error on error! Didn't find checkpoint that was found earlier!");

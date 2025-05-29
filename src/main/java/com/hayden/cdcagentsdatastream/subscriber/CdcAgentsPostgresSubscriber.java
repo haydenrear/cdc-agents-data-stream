@@ -56,7 +56,7 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
     @Override
     public Optional<String> createSubscription() {
         @Language("sql") String toExec = """
-                                        CREATE FUNCTION notify_trigger() RETURNS trigger AS
+                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
                                         $$
                                         BEGIN
                                             PERFORM pg_notify('cdc_checkpoint_writes', json_build_object('thread_id', NEW.thread_id, 'checkpoint_id', NEW.checkpoint_id)::text);

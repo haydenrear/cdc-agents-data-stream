@@ -1,4 +1,5 @@
 logging.level.com.hayden.utilitymodule.result.res_support.many.stream: INFO
+logging.level.com.hayden.cdcagentsdatastream: DEBUG
 logging.level.root: INFO
 
 spring:
@@ -37,7 +38,7 @@ spring:
       url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: none
       format_sql: true
     show-sql: false
   liquibase:
