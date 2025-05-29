@@ -3,6 +3,7 @@ package com.hayden.cdcagentsdatastream.subscriber;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.Striped;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
@@ -12,8 +13,11 @@ import org.intellij.lang.annotations.Language;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
 @Component
@@ -23,6 +27,9 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
     private ObjectMapper objectMapper;
     @Autowired
     private CdcAgentsDataStreamService service;
+
+
+    Striped<Lock> locks = Striped.lock(1024);
 
 
     @Override
@@ -38,7 +45,10 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
 
                     if (threadId != null && checkpointId != null) {
                         // Retrieve and store the checkpoint data
+                        Lock threadLock = locks.get(threadId);
+                        threadLock.lock();
                         service.doReadStreamItem(threadId, checkpointId);
+                        threadLock.unlock();
                     }
                 } catch (JsonProcessingException e) {
                     log.error("Error processing checkpoint writes: {}", e.getMessage(), e);

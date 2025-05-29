@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.hayden.cdcagentsdatastream.dao.CheckpointDao.skipParsingCheckpoint;
+import static com.hayden.cdcagentsdatastream.dao.CheckpointDao.doReplaceCheckpoint;
 
 /**
  * Service for converting between JSON message data and Java objects.
@@ -138,19 +138,20 @@ public class CdcAgentsDataStreamService {
 
                     CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
 
-                    // Check if this checkpoint is already stored
-                    Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
+                    if (doReplaceCheckpoint(dataStream, cd.taskId(), cd.checkpointNs())) {
+                        convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, Map.of(e.getKey(), cd))
+                                .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
+                    } else {
+                        // Check if this checkpoint is already stored
+                        Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findByCheckpointId(cd.checkpointId());
 
-                    if (existingChunks.isPresent() && existingChunks.map(c -> skipParsingCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(false)) {
-                        // Return the already stored messages
-                        return;
+                        if (existingChunks.map(c -> doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
+                            // Return the already stored messages
+                            convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, Map.of(e.getKey(), cd))
+                                    .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
+                        }
                     }
 
-                    // Store each blob as a chunk
-                    convertAndSaveCheckpointData(dataStream, cd.checkpointId(), threadId, Map.of(e.getKey(), cd))
-                            .peekError(err -> log.error("Failed to convert checkpoint data: {}", err.getMessage()));
-
-                    // Return the deserialized messages
                 });
 
         return dataStreamRepository.findBySessionId(threadId);

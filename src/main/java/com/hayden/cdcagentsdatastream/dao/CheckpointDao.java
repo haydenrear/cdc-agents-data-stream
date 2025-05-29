@@ -203,11 +203,17 @@ public class CheckpointDao {
                 .orElse(Lists.newArrayList(checkpoint));
     }
 
+    public static boolean doReplaceCheckpoint(CdcAgentsDataStream c, String taskId, Timestamp checkpointNs) {
+        return !skipParsingCheckpoint(c, taskId, checkpointNs);
+    }
+
     public static boolean skipParsingCheckpoint(CdcAgentsDataStream c, String taskId, Timestamp checkpointNs) {
         if (c.getRawContent() == null || !c.getRawContent().containsKey(taskId))  {
             return false;
         }
+
         var thisTask = c.getRawContent().get(taskId);
+
         if (thisTask == null)
             return false;
 
@@ -226,7 +232,7 @@ public class CheckpointDao {
             return false;
 
         if (thisTaskCheckpoint.checkpointNs != null)
-            return thisTaskCheckpoint.checkpointNs.equals(checkpointNs) || thisTaskCheckpoint.checkpointNs.after(checkpointNs);
+            return thisTaskCheckpoint.checkpointNs.after(checkpointNs);
 
         return false;
     }
