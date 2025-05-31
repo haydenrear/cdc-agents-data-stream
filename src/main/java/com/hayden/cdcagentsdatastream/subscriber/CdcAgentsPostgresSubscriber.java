@@ -47,8 +47,11 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
                         // Retrieve and store the checkpoint data
                         Lock threadLock = locks.get(threadId);
                         threadLock.lock();
-                        service.doReadStreamItem(threadId, checkpointId);
-                        threadLock.unlock();
+                        try {
+                            service.doReadStreamItem(threadId, checkpointId);
+                        } finally {
+                            threadLock.unlock();
+                        }
                     }
                 } catch (JsonProcessingException e) {
                     log.error("Error processing checkpoint writes: {}", e.getMessage(), e);
