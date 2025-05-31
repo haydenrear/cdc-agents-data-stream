@@ -13,6 +13,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,12 +49,6 @@ class CdcAgentsDataStreamApplicationTests {
     @Autowired
     private CdcAgentsDataStreamRepository cdcAgentsDataStreamRepository;
 
-    @SneakyThrows
-    @Test
-    void contextLoads() {
-        Thread.sleep(1000000);
-    }
-
     @Autowired
     CheckpointDao dao;
     @Autowired
@@ -67,6 +62,18 @@ class CdcAgentsDataStreamApplicationTests {
 
     @BeforeEach
     public void before() {
+        dbDataSourceTrigger.doWithKey(sKey -> {
+            sKey.setKey("cdc-subscriber");
+            jdbcTemplate.execute("""
+                    DELETE FROM checkpoint_writes;
+                    DELETE FROM checkpoints;
+                """);
+        });
+        log.info("Cleared checkpoints..");
+    }
+
+    @AfterEach
+    public void after() {
         dbDataSourceTrigger.doWithKey(sKey -> {
             sKey.setKey("cdc-subscriber");
             jdbcTemplate.execute("""

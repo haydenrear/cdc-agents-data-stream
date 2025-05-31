@@ -95,10 +95,6 @@
       ],
       "taskId": "task2"
     },
-    "task3": {
-      "changes": [],
-      "taskId": "task3"
-    },
     "task4": {
       "changes": [
         {
