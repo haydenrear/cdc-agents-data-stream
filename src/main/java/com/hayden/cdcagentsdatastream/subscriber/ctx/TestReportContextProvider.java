@@ -6,10 +6,8 @@ import com.hayden.persistence.lock.AdvisoryLock;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.io.FileUtils;
 import com.hayden.utilitymodule.stream.StreamUtil;
-import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -42,9 +40,9 @@ public class TestReportContextProvider implements ContextProvider {
 
                             var sessionDir = resolve.toFile().getAbsolutePath();
 
-                            try {
                                 log.info("Retrieving report files from {}", sessionDir);
-                                advisoryLock.doLock(sessionDir, "function-calling");
+
+                            return advisoryLock.doWithAdvisoryLock(() -> {
                                 var reportFiles = collectReportFiles(reportDir, stream.getSessionId());
 
                                 if (reportFiles.isEmpty()) {
@@ -56,9 +54,7 @@ public class TestReportContextProvider implements ContextProvider {
                                 deleteProcessedFiles(stream.getSessionId());
 
                                 return reportFiles.entrySet().stream();
-                            } finally {
-                                doUnlockRecursive(sessionDir);
-                            }
+                            }, sessionDir, "function-calling");
                         }));
 
         return Optional.of(
@@ -69,20 +65,6 @@ public class TestReportContextProvider implements ContextProvider {
                         .build());
     }
 
-    private void doUnlockRecursive(String sessionDir) {
-        try {
-            advisoryLock.doUnlock(sessionDir, "function-calling");
-        } catch (DataAccessException |
-                 PersistenceException e) {
-            log.error("Failed to unlock session {} - will try again indefinitely.", sessionDir, e);
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException ex) {
-                log.error("Error waiting to unlock session {}", sessionDir, ex);
-            }
-            doUnlockRecursive(sessionDir);
-        }
-    }
 
     /**
      * Collects test report files from the specified directory
@@ -91,15 +73,26 @@ public class TestReportContextProvider implements ContextProvider {
      * @param registrationId the ID of the registration that generated these reports
      * @return
      */
-    private Map<String, String> collectReportFiles(Path reportDir, String registrationId) {
+    private Map<String, String> collectReportFiles(Path reportDir, String registrationId) throws IOException {
         Map<String, String> reportFiles = new HashMap<>();
         if (!Files.exists(reportDir)) {
             log.debug("Report directory does not exist: {}", reportDir);
             return reportFiles;
         }
 
+        Path registrationDir = reportDir.resolve(registrationId);
+
+        if (!Files.exists(registrationDir)) {
+            log.debug("Report directory does not exist: {}", reportDir);
+            return reportFiles;
+        }
+
+        if (StreamUtil.toStream(Files.list(registrationDir)).toList().isEmpty()) {
+            return reportFiles;
+        }
+
         // TODO: should zip the whole parent directory and save.
-        FileUtils.doOnFilesRecursive(reportDir.resolve(registrationId), path -> {
+        FileUtils.doOnFilesRecursive(registrationDir, path -> {
             try {
                 if (path.toFile().isFile()) {
                     String content = Files.readString(path);
