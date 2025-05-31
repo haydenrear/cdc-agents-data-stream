@@ -37,11 +37,7 @@ public class ContextService {
         var nextSequenceNumber = withCtx.getSequenceNumber() + 1;
 
         for (DataStreamContextItem item : contextItems) {
-            if (item instanceof EnvironmentContextItem envItem) {
-                envItem.setSequenceNumber(nextSequenceNumber);
-            } else if (item instanceof TestReportContextItem reportItem) {
-                reportItem.setSequenceNumber(nextSequenceNumber);
-            }
+            item.setSequenceNumber(nextSequenceNumber);
         }
 
         // Use DiffService to process the diff between previous and current checkpoint data

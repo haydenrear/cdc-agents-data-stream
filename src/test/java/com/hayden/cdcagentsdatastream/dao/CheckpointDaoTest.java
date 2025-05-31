@@ -123,11 +123,12 @@ class CheckpointDaoTest {
                     }
                 }), 0, 500, TimeUnit.MILLISECONDS);
 
-        int num = 0;
+        AtomicInteger num = new AtomicInteger(0);
 
         LocalDateTime time = null;
 
-        while (num < 20) {
+        while (num.get() < 20) {
+
             var nextCheckpoint = checkpoints.poll(600, TimeUnit.MILLISECONDS);
             log.info("Checkpoint {}", nextCheckpoint);
 
@@ -140,14 +141,14 @@ class CheckpointDaoTest {
             if (time == null) {
                 time = bySessionId.get().getUpdatedTime();
             } else if (time.isBefore(bySessionId.get().getUpdatedTime())) {
-                num += 1;
+                num.getAndIncrement();
                 time = bySessionId.get().getUpdatedTime();
             }
 
             specialCyclicBarrier.await();
         }
 
-        assertThat(num).isEqualTo(20);
+        assertThat(num.get()).isEqualTo(20);
     }
 
     private static Map<String, NextDataItem> testData(int num) {

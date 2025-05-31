@@ -99,15 +99,7 @@ public class CheckpointDao {
 
     }
 
-    public @NotNull List<CheckpointData> queryCheckpointBlobs(String threadId, String checkpointId) {
-        return dbDataSourceTrigger.doOnKey(setKey -> {
-            setKey.setKey("cdc-subscriber");
-            return doQueryCheckpointBlobs(threadId, checkpointId);
-        });
-
-    }
-
-    private List<CheckpointData> doQueryCheckpointBlobs(String threadId, String checkpointId) {
+    public List<CheckpointData> doQueryCheckpointBlobs(String threadId, String checkpointId) {
         var taskPaths = queryTaskPaths(threadId, checkpointId);
 
         return taskPaths.stream()

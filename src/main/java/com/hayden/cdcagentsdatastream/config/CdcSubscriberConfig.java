@@ -14,6 +14,7 @@ import com.hayden.persistence.lock.AdvisoryLock;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -28,8 +29,13 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.scheduling.support.SimpleTriggerContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -61,6 +67,7 @@ import java.util.stream.Stream;
 @Configuration
 @Slf4j
 public class CdcSubscriberConfig {
+
 
     @SneakyThrows
     @Bean
@@ -108,7 +115,11 @@ public class CdcSubscriberConfig {
             @Override
             protected Object determineCurrentLookupKey() {
                 var curr = dbDataSourceTrigger.currentKey();
-                return curr;
+                String found = null;
+                if (TransactionSynchronizationManager.hasResource("data-source-key")) {
+                    found = (String) TransactionSynchronizationManager.getResource("data-source-key");
+                }
+                return found == null ? curr : found;
             }
         };
 

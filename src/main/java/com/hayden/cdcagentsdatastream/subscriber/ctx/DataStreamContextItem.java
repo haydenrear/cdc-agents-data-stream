@@ -35,4 +35,6 @@ public sealed interface DataStreamContextItem permits EnvironmentContextItem, Te
     default Integer getSequenceNumber() {
         return null;
     }
+
+    void setSequenceNumber(Integer sequenceNumber);
 }

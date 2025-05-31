@@ -47,6 +47,7 @@ public class CdcAgentsDataStreamService {
             CdcAgentsDataStream beforeUpdate) {}
 
 
+//    @Transactional
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         AtomicInteger i = new AtomicInteger(-1);
         return retrieveAndStoreCheckpoint(threadId, checkpointId)
@@ -55,7 +56,8 @@ public class CdcAgentsDataStreamService {
                     i.set(startingsSeq);
                     return contextService.addCtx(sUpdate);
                 })
-                .map(updatable -> {
+                .map(updatable -> dbDataSourceTrigger.doOnKey(sKey -> {
+                    sKey.setKey("cdc-data-stream");
                     CdcAgentsDataStream toSave = updatable.withCtx();
                     if (toSave.incrementSequenceNumber() != i.incrementAndGet()) {
                         log.error("Sequence number mismatch. Expected {} but got {}", i, toSave);
@@ -63,7 +65,7 @@ public class CdcAgentsDataStreamService {
                     toSave.setRawContent(updatable.update().afterUpdate());
                     toSave.setSessionId(threadId);
                     return dataStreamRepository.save(toSave);
-                });
+                }));
     }
 
     /**
@@ -131,14 +133,13 @@ public class CdcAgentsDataStreamService {
         // Find or create the data stream
         var checkpointBlobs = dbDataSourceTrigger.doOnKey(setKey -> {
             setKey.setKey("cdc-subscriber");
-            return dao.queryCheckpointBlobs(threadId, checkpointId);
+            return dao.doQueryCheckpointBlobs(threadId, checkpointId);
         });
 
         if (checkpointBlobs.isEmpty()) {
             log.debug("No checkpoint data found for thread_id={}, checkpoint_id={}", threadId, checkpointId);
             return Optional.empty();
         }
-
 
         var checkpointMap = MapFunctions.CollectMap(checkpointBlobs.stream()
                 .collect(Collectors.groupingBy(CheckpointDao.CheckpointData::taskId,
@@ -149,37 +150,40 @@ public class CdcAgentsDataStreamService {
                 .stream());
 
 
-        CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
+        return dbDataSourceTrigger.doOnKey(sKey -> {
+            sKey.setKey("cdc-data-stream");
+            CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
 
-        Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
+            Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
 
-        for (var t: dataStream.getRawContent().entrySet()) {
-            toAddTo.put(t.getKey(), new ArrayList<>(t.getValue()));
-        }
+            for (var t: dataStream.getRawContent().entrySet()) {
+                toAddTo.put(t.getKey(), new ArrayList<>(t.getValue()));
+            }
 
-        for (var e : checkpointMap.entrySet()) {
+            for (var e : checkpointMap.entrySet()) {
 
-            var cdOpt = e.getValue();
+                var cdOpt = e.getValue();
 
-            if (cdOpt.isEmpty())
-                continue;
+                if (cdOpt.isEmpty())
+                    continue;
 
-            var cd = cdOpt.get();
+                var cd = cdOpt.get();
 
-            if (doReplaceCheckpoint(dataStream, cd.taskId(), cd.checkpointNs())) {
-                convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
-            } else {
-                // Check if this checkpoint is already stored
-                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(threadId);
-
-                if (existingChunks.map(c -> doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
-                    // Return the already stored messages
+                if (doReplaceCheckpoint(dataStream, cd.taskId(), cd.checkpointNs())) {
                     convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
+                } else {
+                    // Check if this checkpoint is already stored
+                    Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(threadId);
+
+                    if (existingChunks.map(c -> doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
+                        // Return the already stored messages
+                        convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
+                    }
                 }
             }
-        }
 
-        return Optional.of(new CdcAgentsDataStreamUpdate(toAddTo, dataStream));
+            return Optional.of(new CdcAgentsDataStreamUpdate(toAddTo, dataStream));
+        });
     }
 
     /**

@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.intellij.lang.annotations.Language;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -30,7 +31,6 @@ public class CdcAgentsPostgresSubscriber implements CdcSubscriber {
 
 
     Striped<Lock> locks = Striped.lock(1024);
-
 
     @Override
     public void onDataChange(String tableName, String operation, Map<String, Object> data) {
