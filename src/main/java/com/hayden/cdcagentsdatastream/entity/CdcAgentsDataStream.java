@@ -10,10 +10,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -27,6 +25,7 @@ import org.hibernate.type.SqlTypes;
 @AllArgsConstructor
 @Getter
 @Setter
+@Builder
 public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column(nullable = false, unique = true)

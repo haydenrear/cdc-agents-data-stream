@@ -1,5 +1,6 @@
 package com.hayden.cdcagentsdatastream.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.patch.*;
@@ -19,13 +20,8 @@ import com.hayden.commitdiffmodel.model.Git;
 import com.hayden.utilitymodule.MapFunctions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.builder.Diff;
-import org.apache.commons.lang3.builder.DiffBuilder;
-import org.apache.commons.lang3.builder.DiffResult;
-import org.apache.commons.lang3.builder.ToStringStyle;
-import org.apache.commons.text.diff.CommandVisitor;
-import org.apache.commons.text.diff.StringsComparator;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -36,6 +32,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class DiffService {
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     /**
      * Processes a data stream update and calculates the diff between previous and current checkpoint data.
@@ -190,7 +189,8 @@ public class DiffService {
                     return null;
                 });
 
-        var diffed = DiffUtils.diff(Arrays.asList(foundLeft.split(System.lineSeparator())), Arrays.asList(foundRight.split(System.lineSeparator())));
+
+        var diffed = DiffUtils.diff(doSeparateLines(foundLeft), doSeparateLines(foundRight));
 
         var c = diffed.getDeltas().stream()
                 .map(delta -> switch(delta) {
@@ -223,6 +223,19 @@ public class DiffService {
                 .toList();
 
         return new CheckpointDataDiff.CheckpointDataDiffItem(c, taskId);
+    }
+
+    private List<String> doSeparateLines(String foundLeft) {
+        try {
+
+            // always have same line separators for diffs
+            var prettyPrinted = Arrays.asList(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readValue(foundLeft, Object.class)).split(System.lineSeparator()));
+            return prettyPrinted;
+        } catch (JsonProcessingException e) {
+            log.error("Error parsing JSON", e);
+        }
+        var found = Arrays.asList(foundLeft.split(System.lineSeparator()));
+        return found;
     }
 
     private static Git.ContentChange.@NotNull RemoveContent buildRemove(Chunk<String> found) {

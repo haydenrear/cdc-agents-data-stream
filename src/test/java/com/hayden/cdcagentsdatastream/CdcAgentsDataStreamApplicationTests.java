@@ -2,7 +2,9 @@ package com.hayden.cdcagentsdatastream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
+import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.subscriber.CdcAgentsPostgresSubscriber;
 import com.hayden.utilitymodule.MapFunctions;
@@ -23,15 +25,13 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Slf4j
 @SpringBootTest
@@ -45,6 +45,8 @@ class CdcAgentsDataStreamApplicationTests {
     CdcAgentsPostgresSubscriber cdcAgentsPostgresSubscriber;
     @Autowired
     private DbDataSourceTrigger dbDataSourceTrigger;
+    @Autowired
+    private CdcAgentsDataStreamRepository cdcAgentsDataStreamRepository;
 
     @SneakyThrows
     @Test
@@ -76,7 +78,7 @@ class CdcAgentsDataStreamApplicationTests {
     }
 
     public static Map<String, NextDataItem> testData(int num) {
-        return MapFunctions.CollectMap(IntStream.range(0, 200).boxed().map("%s_task"::formatted)
+        return MapFunctions.CollectMap(IntStream.range(0, 5).boxed().map("%s_task"::formatted)
                 .map(i -> {
                     if (num == 3)  {
                         return createMessages(2, i);
@@ -96,13 +98,15 @@ class CdcAgentsDataStreamApplicationTests {
         return Map.entry(i, new NextDataItem(k, i));
     }
 
+    private static CyclicBarrier specialCyclicBarrier = new CyclicBarrier(2);
+
     @SneakyThrows
     @Test
     public void testDao() {
         AtomicInteger i = new AtomicInteger();
         final String test = UUID.randomUUID().toString();
-        List<String> checkpoints = new ArrayList<>();
-        Executors.newScheduledThreadPool(2).scheduleAtFixedRate(() -> {
+        SynchronousQueue<String> checkpoints = new SynchronousQueue<>();
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             dbDataSourceTrigger.doWithKey(sKey -> {
                 sKey.setKey("cdc-subscriber");
                 var nextDataItems = testData(i.getAndIncrement());
@@ -136,28 +140,42 @@ class CdcAgentsDataStreamApplicationTests {
                         var sqlInsert = insertValue.formatted(test, checkpointId, Timestamp.from(Instant.now()), test, checkpointId, messages);
                         jdbcTemplate.execute(sqlInsert);
                         checkpoints.add(checkpointId);
+                        log.info("Adding {}!", checkpointId);
+                        specialCyclicBarrier.await();
                     } catch (Exception exc) {
                         log.error(exc.getMessage(), e);
                     }
                 }
             });
-        }, 3, 3, TimeUnit.SECONDS);
+        }, 0, 500, TimeUnit.MILLISECONDS);
 
         int num = 0;
 
-        while (num < 10) {
-            if (checkpoints.isEmpty()) {
-                Thread.sleep(1000);
-            } else {
-                var nextCheckpoint = checkpoints.removeFirst();
-                var found = s.doReadStreamItem(test, nextCheckpoint);
-                log.info("found: {}", found);
-                if (found.isPresent()) {
-                    num += 1;
-                }
-                Thread.sleep(1000);
+        LocalDateTime time = null;
+
+        while (num < 20) {
+            var nextCheckpoint = checkpoints.poll(600, TimeUnit.MILLISECONDS);
+            log.info("Checkpoint {}", nextCheckpoint);
+
+            Optional<CdcAgentsDataStream> bySessionId = cdcAgentsDataStreamRepository.findBySessionId(test);
+            while (bySessionId.isEmpty()) {
+                bySessionId = cdcAgentsDataStreamRepository.findBySessionId(test);
+                Thread.sleep(30);
             }
+
+            bySessionId = cdcAgentsDataStreamRepository.findBySessionId(test);
+
+            if (time == null) {
+                time = bySessionId.get().getUpdatedTime();
+            } else if (time.isBefore(bySessionId.get().getUpdatedTime())) {
+                num += 1;
+                time = bySessionId.get().getUpdatedTime();
+            }
+
+            specialCyclicBarrier.await();
         }
+
+        assertThat(num).isEqualTo(20);
     }
 
 }

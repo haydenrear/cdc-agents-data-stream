@@ -10,6 +10,8 @@ import com.hayden.commitdiffmodel.config.CommitDiffContextDisableLoggingConfig;
 import com.hayden.commitdiffmodel.config.CommitDiffContextTelemetryLoggingConfig;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import com.hayden.persistence.config.CdcConfig;
+import com.hayden.persistence.lock.AdvisoryLock;
+import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import jakarta.persistence.EntityManager;
 import lombok.SneakyThrows;
@@ -25,20 +27,33 @@ import org.springframework.context.annotation.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
+import org.springframework.scheduling.support.SimpleTriggerContext;
 
 import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @ComponentScan(
         basePackageClasses = {
                 CdcConfig.class, CdcSubscriber.class, CommitDiffContextConfig.class
         },
         basePackages = "com.hayden.commitdiffcontext")
-@Import({CommitDiffContextTelemetryLoggingConfig.class, CommitDiffContextDisableLoggingConfig.class, DbDataSourceTrigger.class})
+@Import({CommitDiffContextTelemetryLoggingConfig.class, CommitDiffContextDisableLoggingConfig.class, DbDataSourceTrigger.class,
+        AdvisoryLock.class})
 @EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamRepository.class},
                        basePackages = "com.hayden.commitdiffcontext")
 @EntityScan(basePackageClasses = CdcAgentsDataStream.class,
@@ -80,6 +95,12 @@ public class CdcSubscriberConfig {
     }
 
     @Bean
+    @ConfigurationProperties("spring.datasource.function-calling")
+    public DataSource cdcFunctionCallingLock() {
+        return DataSourceBuilder.create().build();
+    }
+
+    @Bean
     @Primary
     public DataSource dataSource(DbDataSourceTrigger dbDataSourceTrigger) {
         dbDataSourceTrigger.initializeKeyTo("cdc-data-stream");
@@ -95,6 +116,7 @@ public class CdcSubscriberConfig {
         resolvedDataSources.put("cdc-data-stream", cdcDataStreamDataSource());
         resolvedDataSources.put("cdc-server", cdcServerDataSource());
         resolvedDataSources.put("cdc-subscriber", cdcSubscriberDataSource());
+        resolvedDataSources.put("function-calling", cdcFunctionCallingLock());
 
         routingDataSource.setTargetDataSources(resolvedDataSources);
         routingDataSource.setDefaultTargetDataSource(cdcDataStreamDataSource());
@@ -102,6 +124,12 @@ public class CdcSubscriberConfig {
         routingDataSource.afterPropertiesSet();
 
         return routingDataSource;
+    }
+
+    @Bean
+    public CommandLineRunner checkLocks(AdvisoryLock advisoryLock) {
+        advisoryLock.scheduleAdvisoryLockLogger("function-calling");
+        return args -> {};
     }
 
     @Bean
