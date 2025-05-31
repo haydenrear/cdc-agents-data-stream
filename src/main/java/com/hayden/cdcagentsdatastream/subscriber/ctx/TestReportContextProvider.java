@@ -40,21 +40,26 @@ public class TestReportContextProvider implements ContextProvider {
 
                             var sessionDir = resolve.toFile().getAbsolutePath();
 
-                                log.info("Retrieving report files from {}", sessionDir);
+                            log.info("Retrieving report files from {}", sessionDir);
 
-                            return advisoryLock.doWithAdvisoryLock(() -> {
-                                var reportFiles = collectReportFiles(reportDir, stream.getSessionId());
+                            return advisoryLock.<Stream<Map.Entry<String, String>>>doWithAdvisoryLock(
+                                            () -> {
+                                                var reportFiles = collectReportFiles(reportDir, stream.getSessionId());
 
-                                if (reportFiles.isEmpty()) {
-                                    log.debug("No test report files found for session {}", sessionId);
-                                    return Stream.empty();
-                                }
+                                                if (reportFiles.isEmpty()) {
+                                                    log.debug("No test report files found for session {}", sessionId);
+                                                    return Stream.empty();
+                                                }
 
-                                // Delete processed files to avoid re-processing
-                                deleteProcessedFiles(stream.getSessionId());
+                                                // Delete processed files to avoid re-processing
+                                                deleteProcessedFiles(stream.getSessionId());
 
-                                return reportFiles.entrySet().stream();
-                            }, sessionDir, "function-calling");
+                                                return reportFiles.entrySet().stream();
+                                            },
+                                            sessionDir,
+                                            "function-calling"
+                                    )
+                                    .filter(Objects::nonNull);
                         }));
 
         return Optional.of(

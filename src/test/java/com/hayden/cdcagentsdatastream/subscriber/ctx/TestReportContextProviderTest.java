@@ -42,7 +42,7 @@ class TestReportContextProviderTest {
 
     @SneakyThrows
     @Test
-    public void doTest() {
+    public void testCopyCtx() {
         var found = cdcSubscriberConfigProps.getTestRunnerPaths().getFirst();
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         Path path = found;
