@@ -47,7 +47,6 @@ public class CdcAgentsDataStreamService {
             CdcAgentsDataStream beforeUpdate) {}
 
 
-//    @Transactional
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         AtomicInteger i = new AtomicInteger(-1);
         return retrieveAndStoreCheckpoint(threadId, checkpointId)
