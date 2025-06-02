@@ -1,12 +1,10 @@
 package com.hayden.cdcagentsdatastream.subscriber.ctx;
 
-import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
-import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
-import java.util.*;
-import java.util.stream.Collectors;
 
-import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
+import java.util.*;
+
+import com.hayden.cdcagentsdatastream.service.DataStreamService;
 import com.hayden.cdcagentsdatastream.service.DiffService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +20,10 @@ public class ContextService {
     @Autowired
     private DiffService diffService;
 
-    public record WithContextAdded(CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate update,
+    public record WithContextAdded(DataStreamService.CdcAgentsDataStreamUpdate update,
                                    CdcAgentsDataStream withCtx) {}
 
-    public Optional<WithContextAdded> addCtx(CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate ds) {
+    public Optional<WithContextAdded> addCtx(DataStreamService.CdcAgentsDataStreamUpdate ds) {
         // Get the previous data stream for the same session (if any)
         // Get context items from all providers
         List<DataStreamContextItem> contextItems = contextProviders

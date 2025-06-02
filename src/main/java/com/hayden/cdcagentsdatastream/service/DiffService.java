@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.patch.*;
 import com.google.common.collect.Sets;
+import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
@@ -43,7 +44,7 @@ public class DiffService {
      * @param update the data stream update containing before and after states
      * @return the updated CdcAgentsDataStream with the new diff added
      */
-    public CdcAgentsDataStream processDiff(CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate update,
+    public CdcAgentsDataStream processDiff(DataStreamService.CdcAgentsDataStreamUpdate update,
                                            CdcAgentsDataStream dataStream) {
 
         var c = getCheckpointDataDiff(dataStream, dataStream.getRawContent(), update.afterUpdate());

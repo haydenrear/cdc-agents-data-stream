@@ -1,20 +1,20 @@
 package com.hayden.cdcagentsdatastream.config;
 
 import com.google.common.collect.Lists;
+import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.dao.IdeCheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
+import com.hayden.cdcagentsdatastream.service.IdeDataStreamService;
 import com.hayden.commitdiffcontext.config.CommitDiffContextConfig;
 import com.hayden.commitdiffmodel.config.CommitDiffContextDisableLoggingConfig;
 import com.hayden.commitdiffmodel.config.CommitDiffContextTelemetryLoggingConfig;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import com.hayden.persistence.config.CdcConfig;
 import com.hayden.persistence.lock.AdvisoryLock;
-import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -27,31 +27,15 @@ import org.springframework.boot.sql.init.DatabaseInitializationSettings;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
-import org.springframework.orm.jpa.JpaTransactionManager;
-import org.springframework.scheduling.support.SimpleTriggerContext;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
+import java.util.function.BiFunction;
 
 @ComponentScan(
         basePackageClasses = {
@@ -68,20 +52,6 @@ import java.util.stream.Stream;
 @Slf4j
 public class CdcSubscriberConfig {
 
-
-    @SneakyThrows
-    @Bean
-    public CommandLineRunner initializeDataSource() {
-        DatabaseInitializationSettings settings = new DatabaseInitializationSettings();
-        settings.setSchemaLocations(Lists.newArrayList(new ClassPathResource("schema.sql").getPath()));
-        settings.setMode(DatabaseInitializationMode.ALWAYS);
-        var i = new SqlDataSourceScriptDatabaseInitializer(cdcSubscriberDataSource(), settings);
-        i.afterPropertiesSet();
-        if (!i.initializeDatabase()) {
-            log.error("Database initialization failed");
-        }
-        return args -> {};
-    }
 
     @Bean
     @ConfigurationProperties("spring.datasource.cdc-subscriber")
@@ -144,44 +114,102 @@ public class CdcSubscriberConfig {
     }
 
     @Bean
-    public CommandLineRunner kickstart(CdcAgentsDataStreamService streamService,
-                                       CheckpointDao checkpointDao,
-                                       CdcAgentsDataStreamRepository dataStreamRepository) {
+    @DependsOn("initializeDataSource")
+    public CommandLineRunner kickstart(CdcAgentsDataStreamService cdcStreamService,
+                                       IdeDataStreamService ideStreamService,
+                                       CdcCheckpointDao checkpointDao,
+                                       IdeCheckpointDao ideCheckpointDao,
+                                       CdcAgentsDataStreamRepository dataStreamRepository,
+                                       DbDataSourceTrigger trigger) {
         return args -> {
             log.info("Starting checkpoint data processing...");
 
-            var latestCheckpoints = checkpointDao.queryLatestCheckpoints();
+            var processedNum = trigger.doOnKey(sKey -> {
+                sKey.setKey("cdc-subscriber");
+                return doSave(cdcStreamService::doReadStreamItem, checkpointDao, dataStreamRepository, trigger);
+            });
 
-            log.info("Found {} thread_ids with latest checkpoints to process", latestCheckpoints.size());
 
-            int processedNum = 0;
+            log.info("Finished CDC checkpoint data processing - processed {} checkpoints into db.", processedNum);
 
-            for (var checkpoint : latestCheckpoints) {
-                String threadId = checkpoint.threadId();
-                String checkpointId = checkpoint.checkpointId();
-                String taskId = checkpoint.taskPath();
-                Timestamp checkpointTimestamp = checkpoint.timestamp();
-                
-                // Check if we already have this thread_id in our database
-                Optional<CdcAgentsDataStream> existingDataStream = dataStreamRepository.findBySessionId(threadId);
+            processedNum = trigger.doOnKey(sKey -> {
+                sKey.setKey("ide-subscriber");
+                return doSave(ideStreamService::doReadStreamItem, ideCheckpointDao, dataStreamRepository, trigger);
+            });
 
-                boolean shouldProcess = existingDataStream.isEmpty() || !CheckpointDao.skipParsingCheckpoint(existingDataStream.get(), taskId, checkpointTimestamp);
-                
-                if (shouldProcess) {
-                    log.info("Processing latest checkpoint data for thread_id={}, checkpoint_id={}, timestamp={}", 
-                             threadId, checkpointId, checkpointTimestamp);
-                    streamService.doReadStreamItem(threadId, checkpointId)
-                        .ifPresentOrElse(
-                            dataStream -> log.info("Successfully processed data for thread_id={}, checkpoint_id={}", threadId, checkpointId),
-                            () -> log.warn("No data processed for thread_id={}, checkpoint_id={}", threadId, checkpointId));
-                    processedNum += 1;
-                } else {
-                    log.info("Skipping thread_id={}, checkpoint_id={} - already have newer or equal data", threadId, checkpointId);
-                }
-            }
+            log.info("Finished IDE checkpoint data processing - processed {} checkpoints into db.", processedNum);
 
-            log.info("Finished checkpoint data processing - processed {} checkpoints into db.", processedNum);
         };
+    }
+
+    private static int doSave(BiFunction<String, String, Optional<CdcAgentsDataStream>> streamService,
+                              CheckpointDao checkpointDao,
+                              CdcAgentsDataStreamRepository dataStreamRepository,
+                              DbDataSourceTrigger trigger) {
+        var latestCheckpoints = checkpointDao.queryLatestCheckpoints();
+
+        log.info("Found {} thread_ids with latest checkpoints to process", latestCheckpoints.size());
+
+        int processedNum = 0;
+
+        for (var checkpoint : latestCheckpoints) {
+            String threadId = checkpoint.threadId();
+            String checkpointId = checkpoint.checkpointId();
+            String taskId = checkpoint.taskPath();
+            Timestamp checkpointTimestamp = checkpoint.timestamp();
+
+
+            Optional<CdcAgentsDataStream> existingDataStream = trigger.doOnKey(sKey -> {
+                 sKey.setKey("cdc-data-stream");
+                 return dataStreamRepository.findBySessionId(threadId);
+            });
+
+            boolean shouldProcess = existingDataStream.isEmpty() || !checkpointDao.skipParsingCheckpoint(existingDataStream.get(), taskId, checkpointTimestamp);
+
+            if (shouldProcess) {
+                log.info("Processing latest checkpoint data for thread_id={}, checkpoint_id={}, timestamp={}",
+                         threadId, checkpointId, checkpointTimestamp);
+                streamService.apply(threadId, checkpointId)
+                    .ifPresentOrElse(
+                        dataStream -> log.info("Successfully processed data for thread_id={}, checkpoint_id={}", threadId, checkpointId),
+                        () -> log.warn("No data processed for thread_id={}, checkpoint_id={}", threadId, checkpointId));
+                processedNum += 1;
+            } else {
+                log.info("Skipping thread_id={}, checkpoint_id={} - already have newer or equal data", threadId, checkpointId);
+            }
+        }
+        return processedNum;
+    }
+
+    @SneakyThrows
+    @Bean
+    public CommandLineRunner initializeDataSource(DbDataSourceTrigger trigger) {
+        doPerformInitializationWithTrigger(trigger, "cdc-subscriber", "cdc-agents-schema.sql");
+        doPerformInitializationWithTrigger(trigger, "ide-subscriber", "ide-schema.sql");
+        return args -> {};
+    }
+
+    private void doPerformInitializationWithTrigger(DbDataSourceTrigger trigger, String dbKey, String schemaPath) {
+        trigger.doWithKey(sKey -> {
+            sKey.setKey(dbKey);
+            doPerformInitialization(schemaPath);
+        });
+    }
+
+    private void doPerformInitialization(String path) {
+        DatabaseInitializationSettings settings = new DatabaseInitializationSettings();
+        settings.setSchemaLocations(Lists.newArrayList(new ClassPathResource(path).getPath()));
+        settings.setMode(DatabaseInitializationMode.ALWAYS);
+        var i = new SqlDataSourceScriptDatabaseInitializer(cdcSubscriberDataSource(), settings);
+        try {
+            i.afterPropertiesSet();
+            if (!i.initializeDatabase()) {
+                log.error("Database initialization failed");
+                throw new RuntimeException("Database initialization failed");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

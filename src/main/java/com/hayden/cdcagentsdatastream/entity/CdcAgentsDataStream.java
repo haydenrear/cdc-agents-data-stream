@@ -1,11 +1,12 @@
 package com.hayden.cdcagentsdatastream.entity;
 
+import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.dao.IdeCheckpointDao;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.DataStreamContextItem;
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +42,11 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, List<CheckpointDao.CheckpointData>> ideContent =
+            new HashMap<>();
+
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> metadata;
 
     @Column(columnDefinition = "jsonb")
@@ -51,7 +57,9 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<CheckpointDataDiff> checkpointDiffs = new ArrayList<>();
 
-
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<CheckpointDataDiff> ideCheckpointDiffs = new ArrayList<>();
 
     public synchronized int incrementSequenceNumber() {
         this.sequenceNumber++;

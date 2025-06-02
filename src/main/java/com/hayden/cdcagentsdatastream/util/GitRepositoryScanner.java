@@ -31,11 +31,12 @@ import java.util.stream.Stream;
 public class GitRepositoryScanner {
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(
-            Math.max(2, Runtime.getRuntime().availableProcessors() / 2)
-    );
+            Math.max(2, Runtime.getRuntime().availableProcessors() / 2));
 
     /**
      * Scans common directories for Git repositories.
+     * // TODO externalize locations and also directories to copy as resources, such as
+     *      application.yml, etc, for each repository.
      *
      * @return a map of repository names to their file paths
      */
@@ -123,7 +124,7 @@ public class GitRepositoryScanner {
      * @param limit maximum number of commits to retrieve per repository
      * @return map of directory names to commit hashes
      */
-    public Map<String, List<String>> collectCommitHashesAsync(Map<String, String> gitDirectories, int limit) {
+    public Map<String, List<String>> collectCommitHashes(Map<String, String> gitDirectories, int limit) {
         Map<String, CompletableFuture<List<String>>> futures = new HashMap<>();
         
         // Start asynchronous tasks for each repository
@@ -256,6 +257,26 @@ public class GitRepositoryScanner {
         }
         
         return repositories;
+    }
+
+    /**
+     * Checks if a repository has uncommitted changes.
+     *
+     * @param repoPath path to the git repository
+     * @return true if there are uncommitted changes, false otherwise
+     */
+    public Optional retrieveUncommittedChanges(String repoPath) {
+        try (Repository repository = new RepositoryBuilder()
+                .setGitDir(new File(Paths.get(repoPath, ".git").toString()))
+                .build();
+             Git git = new Git(repository)) {
+
+            git.diff().call();
+
+        } catch (IOException | GitAPIException e) {
+            log.error("Error checking for uncommitted changes in {}: {}", repoPath, e.getMessage());
+        }
+        return Optional.empty();
     }
 
     /**

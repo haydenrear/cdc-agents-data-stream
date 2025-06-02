@@ -48,10 +48,5 @@ public final class EnvironmentContextItem implements DataStreamContextItem {
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> additionalMetadata;
-    
-    @Override
-    public Integer getSequenceNumber() {
-        return sequenceNumber;
-    }
 
 }

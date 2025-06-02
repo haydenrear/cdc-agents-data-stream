@@ -1,13 +1,11 @@
 package com.hayden.cdcagentsdatastream.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
 import com.hayden.commitdiffmodel.model.Git;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -47,16 +45,16 @@ class DiffServiceTest {
     })
     void testDiffWithTestResources(String testCase) throws Exception {
         // Load test resources
-        Map<String, List<CheckpointDao.CheckpointData>> before = loadCheckpointData(testCase, "before.json");
-        Map<String, List<CheckpointDao.CheckpointData>> after = loadCheckpointData(testCase, "after.json");
+        Map<String, List<CdcCheckpointDao.CheckpointData>> before = loadCheckpointData(testCase, "before.json");
+        Map<String, List<CdcCheckpointDao.CheckpointData>> after = loadCheckpointData(testCase, "after.json");
         String expectedDiffJson = readResourceFile(testCase + "/expected.json");
         
         // Set up the data stream with the 'before' state
         // Create the update
         CdcAgentsDataStream cdcAgentsDataStream = new CdcAgentsDataStream();
         cdcAgentsDataStream.setRawContent(before);
-        CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate update = 
-            new CdcAgentsDataStreamService.CdcAgentsDataStreamUpdate(after, cdcAgentsDataStream);
+        DataStreamService.CdcAgentsDataStreamUpdate update =
+            new DataStreamService.CdcAgentsDataStreamUpdate(after, cdcAgentsDataStream);
         
         // Process the diff
         CdcAgentsDataStream result = diffService.processDiff(update, cdcAgentsDataStream);
@@ -80,8 +78,8 @@ class DiffServiceTest {
     /**
      * Helper method to create checkpoint data
      */
-    private CheckpointDao.CheckpointData createCheckpointData(String taskId, String content, Timestamp timestamp) {
-        return new CheckpointDao.CheckpointData(
+    private CdcCheckpointDao.CheckpointData createCheckpointData(String taskId, String content, Timestamp timestamp) {
+        return new CdcCheckpointDao.CheckpointData(
                 content.getBytes(StandardCharsets.UTF_8),
                 timestamp,
                 "",
@@ -93,7 +91,7 @@ class DiffServiceTest {
     /**
      * Load checkpoint data from a JSON test resource file
      */
-    private Map<String, List<CheckpointDao.CheckpointData>> loadCheckpointData(String testCase, String filename)
+    private Map<String, List<CdcCheckpointDao.CheckpointData>> loadCheckpointData(String testCase, String filename)
             throws IOException {
         String path = testCase + "/" + filename;
         String json = readResourceFile(path);
@@ -103,10 +101,10 @@ class DiffServiceTest {
             objectMapper.readValue(json, HashMap.class);
 
         // Convert to CheckpointData objects
-        Map<String, List<CheckpointDao.CheckpointData>> result = new HashMap<>();
+        Map<String, List<CdcCheckpointDao.CheckpointData>> result = new HashMap<>();
 
         for (Map.Entry<String, List<Map<String, Object>>> entry : parsed.entrySet()) {
-            List<CheckpointDao.CheckpointData> dataList = entry.getValue().stream()
+            List<CdcCheckpointDao.CheckpointData> dataList = entry.getValue().stream()
                 .map(map -> {
                     String content = (String) map.get("content");
                     var timestamp = Timestamp.from(Instant.ofEpochMilli(Long.valueOf(String.valueOf(map.get("timestamp")))));
@@ -131,13 +129,13 @@ class DiffServiceTest {
     /**
      * Reconstruct the 'after' state by applying diffs to the 'before' state
      */
-    private Map<String, List<CheckpointDao.CheckpointData>> reconstructAfterState(
-            Map<String, List<CheckpointDao.CheckpointData>> before,
+    private Map<String, List<CdcCheckpointDao.CheckpointData>> reconstructAfterState(
+            Map<String, List<CdcCheckpointDao.CheckpointData>> before,
             CheckpointDataDiff diff) {
 
         // Create a deep copy of the 'before' state
-        Map<String, List<CheckpointDao.CheckpointData>> result = new HashMap<>();
-        for (Map.Entry<String, List<CheckpointDao.CheckpointData>> entry : before.entrySet()) {
+        Map<String, List<CdcCheckpointDao.CheckpointData>> result = new HashMap<>();
+        for (Map.Entry<String, List<CdcCheckpointDao.CheckpointData>> entry : before.entrySet()) {
             result.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
 
@@ -241,10 +239,10 @@ class DiffServiceTest {
     /**
      * Normalize checkpoint data for comparison (converts to a map of task IDs to content strings)
      */
-    private Map<String, String> normalizeCheckpointData(Map<String, List<CheckpointDao.CheckpointData>> data) {
+    private Map<String, String> normalizeCheckpointData(Map<String, List<CdcCheckpointDao.CheckpointData>> data) {
         Map<String, String> normalized = new HashMap<>();
 
-        for (Map.Entry<String, List<CheckpointDao.CheckpointData>> entry : data.entrySet()) {
+        for (Map.Entry<String, List<CdcCheckpointDao.CheckpointData>> entry : data.entrySet()) {
             if (!entry.getValue().isEmpty()) {
                 String content = new String(entry.getValue().get(0).checkpoint(), StandardCharsets.UTF_8);
                 normalized.put(entry.getKey(), content);
