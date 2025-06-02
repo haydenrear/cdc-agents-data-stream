@@ -133,7 +133,7 @@ public class CdcSubscriberConfig {
             log.info("Finished CDC checkpoint data processing - processed {} checkpoints into db.", processedNum);
 
             processedNum = trigger.doOnKey(sKey -> {
-                sKey.setKey("ide-subscriber");
+                sKey.setKey("cdc-subscriber");
                 return doSave(ideStreamService::doReadStreamItem, ideCheckpointDao, dataStreamRepository, trigger);
             });
 
@@ -181,11 +181,10 @@ public class CdcSubscriberConfig {
         return processedNum;
     }
 
-    @SneakyThrows
     @Bean
     public CommandLineRunner initializeDataSource(DbDataSourceTrigger trigger) {
         doPerformInitializationWithTrigger(trigger, "cdc-subscriber", "cdc-agents-schema.sql");
-        doPerformInitializationWithTrigger(trigger, "ide-subscriber", "ide-schema.sql");
+        doPerformInitializationWithTrigger(trigger, "cdc-subscriber", "ide-schema.sql");
         return args -> {};
     }
 

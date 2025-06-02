@@ -2,12 +2,15 @@ package com.hayden.cdcagentsdatastream.dao;
 
 import com.google.common.collect.Lists;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
+import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
+import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public interface CheckpointDao {
@@ -22,6 +25,10 @@ public interface CheckpointDao {
     record LatestCheckpoints(String threadId, String checkpointId, Timestamp timestamp, String taskPath) {
     }
 
+
+    Map<String, List<CheckpointData>> retrieveDiffContent(CdcAgentsDataStream dataStream);
+
+    ContextService.WithContextAdded addDiff(ContextService.WithContextAdded cdcAgentsDataStream, List<CheckpointDataDiff> diffs);
 
     static boolean skipParsingCheckpoint(List<CheckpointData> thisTask, Timestamp checkpointNs) {
 

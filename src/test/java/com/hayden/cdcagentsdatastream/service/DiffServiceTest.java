@@ -52,15 +52,17 @@ class DiffServiceTest {
         // Set up the data stream with the 'before' state
         // Create the update
         CdcAgentsDataStream cdcAgentsDataStream = new CdcAgentsDataStream();
-        cdcAgentsDataStream.setRawContent(before);
+        cdcAgentsDataStream.setCdcContent(before);
         DataStreamService.CdcAgentsDataStreamUpdate update =
             new DataStreamService.CdcAgentsDataStreamUpdate(after, cdcAgentsDataStream);
         
         // Process the diff
-        CdcAgentsDataStream result = diffService.processDiff(update, cdcAgentsDataStream);
-        
+        diffService.processDiff(update, cdcAgentsDataStream, cdcAgentsDataStream.getCdcContent())
+                .ifPresent(c -> update.beforeUpdate().getCdcCheckpointDiffs().add(c));
+
+
         // Verify we have a diff
-        List<CheckpointDataDiff> checkpointDiffs = result.getCheckpointDiffs();
+        List<CheckpointDataDiff> checkpointDiffs = update.beforeUpdate().getCdcCheckpointDiffs();
         assertEquals(1, checkpointDiffs.size());
         
         // Convert the actual diff to JSON for comparison

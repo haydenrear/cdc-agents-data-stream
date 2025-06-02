@@ -28,30 +28,6 @@ public class IdeAgentsPostgresSubscriber implements AgentsPostgresSubscriber {
     @Autowired
     private AgentPostgresService agentPostgresService;
 
-
-    @Override
-    public void onDataChange(String tableName, String operation, Map<String, Object> data) {
-        // Process checkpoint writes - store in our data model
-        if (Objects.equals(operation, "ide_writes")) {
-            var found = data.get("ide_writes");
-            if (found instanceof String s) {
-                try {
-                    var created = objectMapper.readValue(s, new TypeReference<Map<String, String>>() {});
-                    var threadId = created.get("thread_id");
-                    var checkpointId = created.get("checkpoint_id");
-
-                    if (threadId != null && checkpointId != null) {
-                        // Retrieve and store the checkpoint data
-                        service.doReadStreamItem(threadId, checkpointId);
-                    }
-                } catch (JsonProcessingException e) {
-                    log.error("Error processing checkpoint writes: {}", e.getMessage(), e);
-                }
-            }
-        }
-    }
-    
-
     @Override
     public List<String> getSubscriptionName() {
         return List.of("ide_writes");
@@ -60,7 +36,7 @@ public class IdeAgentsPostgresSubscriber implements AgentsPostgresSubscriber {
     @Override
     public Optional<String> createSubscription() {
         @Language("sql") String toExec = """
-                                        CREATE OR REPLACE FUNCTION notify_trigger() RETURNS trigger AS
+                                        CREATE OR REPLACE FUNCTION notify_ide_trigger() RETURNS trigger AS
                                         $$
                                         BEGIN
                                             PERFORM pg_notify('ide_writes', json_build_object('thread_id', NEW.thread_id, 'checkpoint_id', NEW.checkpoint_id)::text);
@@ -71,7 +47,7 @@ public class IdeAgentsPostgresSubscriber implements AgentsPostgresSubscriber {
                                             AFTER INSERT OR UPDATE
                                             ON ide_checkpoints
                                             FOR EACH ROW
-                                        EXECUTE FUNCTION notify_trigger();
+                                        EXECUTE FUNCTION notify_ide_trigger();
                 """;
         return Optional.of(toExec);
     }

@@ -1,12 +1,11 @@
 package com.hayden.cdcagentsdatastream.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.lock.StripedLock;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
-import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
+import com.hayden.cdcagentsdatastream.trigger.DbTriggerRoute;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +35,7 @@ public class CdcAgentsDataStreamService {
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         var checkpointData = retrieveAndStoreCheckpoint(threadId, checkpointId);
         return dataStreamService.retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
-                .flatMap(dataStreamService::doReadStreamItem);
+                .flatMap(ds -> dataStreamService.doReadStreamItem(ds, this.dao));
     }
 
 

@@ -1,10 +1,11 @@
 package com.hayden.cdcagentsdatastream.service;
 
-import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.IdeCheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.lock.StripedLock;
+import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
+import com.hayden.cdcagentsdatastream.trigger.DbTriggerRoute;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ public class IdeDataStreamService {
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         var checkpointData = retrieveAndStoreCheckpoint(threadId, checkpointId);
         return dataStreamService.retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
-                .flatMap(dataStreamService::doReadStreamItem);
+                .flatMap(ds -> dataStreamService.doReadStreamItem(ds, dao));
     }
 
 
@@ -48,12 +49,7 @@ public class IdeDataStreamService {
      * @return an Optional containing the deserialized checkpoint data
      */
     public List<CheckpointDao.CheckpointData> retrieveAndStoreCheckpoint(String threadId, String checkpointId) {
-        // Find or create the data stream
-        return dbDataSourceTrigger.doOnKey(setKey -> {
-            setKey.setKey("ide-subscriber");
-            return dao.doQueryCheckpointBlobs(threadId, checkpointId);
-        });
-
+        return dao.doQueryCheckpointBlobs(threadId, checkpointId);
     }
 
 }

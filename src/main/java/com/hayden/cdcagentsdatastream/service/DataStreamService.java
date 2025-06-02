@@ -3,25 +3,20 @@ package com.hayden.cdcagentsdatastream.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
-import com.hayden.cdcagentsdatastream.lock.StripedLock;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
+import com.hayden.cdcagentsdatastream.trigger.DbTriggerRoute;
 import com.hayden.utilitymodule.MapFunctions;
-import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import com.hayden.utilitymodule.result.Result;
 import com.hayden.utilitymodule.result.error.SingleError;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -35,35 +30,24 @@ public class DataStreamService {
 
     private final ObjectMapper objectMapper;
     private final CdcAgentsDataStreamRepository dataStreamRepository;
-    private final CdcCheckpointDao dao;
     private final ContextService contextService;
 
-    @Autowired
-    private DbDataSourceTrigger dbDataSourceTrigger;
-
-    public record CdcAgentsDataStreamUpdate(
-            Map<String, List<CheckpointDao.CheckpointData>> afterUpdate,
-            CdcAgentsDataStream beforeUpdate) {}
+    public record CdcAgentsDataStreamUpdate(Map<String, List<CheckpointDao.CheckpointData>> afterUpdate,
+                                            CdcAgentsDataStream beforeUpdate) { }
 
 
 //    @Transactional
-    @StripedLock
-    public Optional<CdcAgentsDataStream> doReadStreamItem(CdcAgentsDataStreamUpdate sUpdate) {
-        AtomicInteger i = new AtomicInteger(-1);
-        var startingsSeq = sUpdate.beforeUpdate.getSequenceNumber();
-        i.set(startingsSeq);
-        var threadId = sUpdate.beforeUpdate.getSessionId();
-        return contextService.addCtx(sUpdate)
-                .map(updatable -> dbDataSourceTrigger.doOnKey(sKey -> {
-                    sKey.setKey("cdc-data-stream");
-                    CdcAgentsDataStream toSave = updatable.withCtx();
-                    if (toSave.incrementSequenceNumber() != i.incrementAndGet()) {
-                        log.error("Sequence number mismatch. Expected {} but got {}", i, toSave);
-                    }
-                    toSave.setRawContent(updatable.update().afterUpdate());
-                    toSave.setSessionId(threadId);
-                    return dataStreamRepository.save(toSave);
-                }));
+    @DbTriggerRoute(route = "cdc-data-stream")
+    public Optional<CdcAgentsDataStream> doReadStreamItem(CdcAgentsDataStreamUpdate sUpdate,
+                                                          CheckpointDao checkpointDao) {
+        return contextService.addCtx(sUpdate, checkpointDao)
+                .map(this::doSave);
+    }
+
+    public CdcAgentsDataStream doSave(ContextService.WithContextAdded updatable) {
+        CdcAgentsDataStream toSave = updatable.withCtx();
+        toSave.setCdcContent(updatable.update().afterUpdate());
+        return dataStreamRepository.save(toSave);
     }
 
     /**
@@ -71,7 +55,7 @@ public class DataStreamService {
      *
      * @return a Result containing the saved chunk or an error
      */
-    public void convertAndSaveCheckpointData(
+    public void mergeTo(
             Map<String, List<CheckpointDao.CheckpointData>> toAddTo,
             Map<String, CheckpointDao.CheckpointData> dataEntry) {
 
@@ -126,6 +110,7 @@ public class DataStreamService {
      * @param threadId the thread ID of the checkpoint
      * @return an Optional containing the deserialized checkpoint data
      */
+    @DbTriggerRoute(route = "cdc-data-stream")
     public Optional<CdcAgentsDataStreamUpdate> retrieveAndStoreCheckpoint(List<CheckpointDao.CheckpointData> checkpointBlobs,
                                                                           String threadId,
                                                                           CheckpointDao checkpointData) {
@@ -144,40 +129,37 @@ public class DataStreamService {
                 .stream());
 
 
-        return dbDataSourceTrigger.doOnKey(sKey -> {
-            sKey.setKey("cdc-data-stream");
-            CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
+        CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
 
-            Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
+        Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
 
-            for (var t: dataStream.getRawContent().entrySet()) {
-                toAddTo.put(t.getKey(), new ArrayList<>(t.getValue()));
-            }
+        for (var t : checkpointData.retrieveDiffContent(dataStream).entrySet()) {
+            toAddTo.put(t.getKey(), new ArrayList<>(t.getValue()));
+        }
 
-            for (var e : checkpointMap.entrySet()) {
+        for (var e : checkpointMap.entrySet()) {
 
-                var cdOpt = e.getValue();
+            var cdOpt = e.getValue();
 
-                if (cdOpt.isEmpty())
-                    continue;
+            if (cdOpt.isEmpty())
+                continue;
 
-                var cd = cdOpt.get();
+            var cd = cdOpt.get();
 
-                if (dao.doReplaceCheckpoint(dataStream, cd.taskId(), cd.checkpointNs())) {
-                    convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
-                } else {
-                    // Check if this checkpoint is already stored
-                    Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(threadId);
+            if (checkpointData.doReplaceCheckpoint(dataStream, cd.taskId(), cd.checkpointNs())) {
+                mergeTo(toAddTo, Map.of(e.getKey(), cd));
+            } else {
+                // Check if this checkpoint is already stored
+                Optional<CdcAgentsDataStream> existingChunks = dataStreamRepository.findBySessionId(threadId);
 
-                    if (existingChunks.map(c -> dao.doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
-                        // Return the already stored messages
-                        convertAndSaveCheckpointData(toAddTo, Map.of(e.getKey(), cd));
-                    }
+                if (existingChunks.map(c -> checkpointData.doReplaceCheckpoint(c, cd.taskId(), cd.checkpointNs())).orElse(true)) {
+                    // Return the already stored messages
+                    mergeTo(toAddTo, Map.of(e.getKey(), cd));
                 }
             }
+        }
 
-            return Optional.of(new CdcAgentsDataStreamUpdate(toAddTo, dataStream));
-        });
+        return Optional.of(new CdcAgentsDataStreamUpdate(toAddTo, dataStream));
     }
 
     /**

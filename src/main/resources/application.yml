@@ -36,12 +36,6 @@ spring:
       password: postgres
       jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
       url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-    ide-subscriber:
-      driver-class-name: org.postgresql.Driver
-      username: postgres
-      password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5450/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
     function-calling:
       driver-class-name: org.postgresql.Driver
       username: postgres

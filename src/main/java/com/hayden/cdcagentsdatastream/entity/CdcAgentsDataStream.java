@@ -1,8 +1,6 @@
 package com.hayden.cdcagentsdatastream.entity;
 
-import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
-import com.hayden.cdcagentsdatastream.dao.IdeCheckpointDao;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.DataStreamContextItem;
 import com.hayden.persistence.models.JpaHibernateAuditedIded;
 import jakarta.persistence.*;
@@ -37,7 +35,7 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, List<CheckpointDao.CheckpointData>> rawContent =
+    private Map<String, List<CheckpointDao.CheckpointData>> cdcContent =
         new HashMap<>();
 
     @Column(columnDefinition = "jsonb")
@@ -55,7 +53,7 @@ public class CdcAgentsDataStream extends JpaHibernateAuditedIded {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<CheckpointDataDiff> checkpointDiffs = new ArrayList<>();
+    private List<CheckpointDataDiff> cdcCheckpointDiffs = new ArrayList<>();
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

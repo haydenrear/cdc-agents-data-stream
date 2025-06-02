@@ -27,8 +27,8 @@ public interface AgentsPostgresSubscriber extends CdcSubscriber {
 
     default void onDataChange(String tableName, String operation, Map<String, Object> data) {
         // Process checkpoint writes - store in our data model
-        if (Objects.equals(operation, "ide_writes")) {
-            var found = data.get("ide_writes");
+        if (Objects.equals(operation, name())) {
+            var found = data.get(name());
             if (found instanceof String s) {
                 var created = data(s);
 
