@@ -229,7 +229,9 @@ public class DiffService {
         try {
 
             // always have same line separators for diffs
-            var prettyPrinted = Arrays.asList(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readValue(foundLeft, Object.class)).split(System.lineSeparator()));
+            var prettyPrinted = Arrays.asList(objectMapper.writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(objectMapper.readValue(foundLeft, Object.class))
+                    .split(System.lineSeparator()));
             return prettyPrinted;
         } catch (JsonProcessingException e) {
             log.error("Error parsing JSON", e);
