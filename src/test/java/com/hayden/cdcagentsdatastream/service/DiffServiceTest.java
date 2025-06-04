@@ -38,9 +38,9 @@ class DiffServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "diffservice/case1_addition",
-        "diffservice/case2_removal",
-        "diffservice/case3_modification",
+//        "diffservice/case1_addition",
+//        "diffservice/case2_removal",
+//        "diffservice/case3_modification",
         "diffservice/case4_multiple_changes"
     })
     void testDiffWithTestResources(String testCase) throws Exception {

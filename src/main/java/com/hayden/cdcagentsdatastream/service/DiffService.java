@@ -167,8 +167,8 @@ public class DiffService {
     private CheckpointDataDiff.CheckpointDataDiffItem createDiffRemove(List<CheckpointDao.CheckpointData> oldValue, String taskId) {
         return createDiffFromFactory(oldValue, c -> {
             var s  = new String(c.checkpoint(), Charset.defaultCharset());
-            List<String> lineSep = Arrays.asList(s.split(System.lineSeparator()));
-            Git.ContentChange co = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(0, lineSep.size()), lineSep);
+            var lineSep = s.split(System.lineSeparator());
+            Git.ContentChange co = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(0, lineSep.length), new ArrayList<>());
             return co;
         }, taskId);
     }
@@ -188,7 +188,6 @@ public class DiffService {
                     log.error("Error - did not have any timestamp!");
                     return null;
                 });
-
 
         var diffed = DiffUtils.diff(doSeparateLines(foundLeft), doSeparateLines(foundRight));
 
