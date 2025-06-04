@@ -67,7 +67,7 @@ public class IdeCheckpointDao implements CheckpointDao {
                         ORDER BY checkpoint_ts DESC
                         LIMIT 1
                         """,
-                (rs, rowNum) -> new CheckpointData(rs.getBytes("checkpoint_blob"),rs.getTimestamp("checkpoint_ts"), threadId, checkpointId, tp),
+                (rs, rowNum) -> new CheckpointData(rs.getBytes("checkpoint_blob"), rs.getTimestamp("checkpoint_ts"), threadId, checkpointId, tp),
                 threadId, checkpointId, tp
         );
 
