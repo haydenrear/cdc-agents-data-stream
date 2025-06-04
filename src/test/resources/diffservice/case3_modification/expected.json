@@ -12,9 +12,7 @@
                 "start": 1,
                 "end": 1
               },
-              "lines": [
-                "Line 2"
-              ]
+              "lines": []
             },
             "toAddContent": {
               "type": "insert_content",

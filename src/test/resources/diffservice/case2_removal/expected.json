@@ -11,7 +11,7 @@
                 "start": 0,
                 "end": 1
               },
-              "lines": ["Content to be removed"]
+              "lines": []
             },
             "toAddContent": {
               "lines": [""],

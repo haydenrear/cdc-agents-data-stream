@@ -242,7 +242,8 @@ public class DiffService {
 
     private static Git.ContentChange.@NotNull RemoveContent buildRemove(Chunk<String> found) {
         int changePosition = found.getPosition();
-        Git.ContentChange.RemoveContent remove = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(changePosition, found.size()), found.getLines());
+        Git.ContentChange.RemoveContent remove
+                = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(changePosition, found.size()), new ArrayList<>());
         return remove;
     }
 
