@@ -41,7 +41,7 @@ import java.util.function.BiFunction;
         basePackageClasses = {
                 CdcConfig.class, CdcSubscriber.class, CommitDiffContextConfig.class
         },
-        basePackages = "com.hayden.commitdiffcontext")
+        basePackages = {"com.hayden.commitdiffcontext", "com.hayden.utilitymodule.concurrent.striped"})
 @Import({CommitDiffContextTelemetryLoggingConfig.class, CommitDiffContextDisableLoggingConfig.class, DbDataSourceTrigger.class,
         AdvisoryLock.class})
 @EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamRepository.class},
