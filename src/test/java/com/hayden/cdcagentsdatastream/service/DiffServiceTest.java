@@ -148,12 +148,12 @@ class DiffServiceTest {
 
             // Handle add/remove/modify based on content change type
             for (CheckpointDataDiff.ContentChangeDiff contentChange : diffItem.changes()) {
-                Git.ContentChange change = contentChange.change();
+                Git.Content change = contentChange.change();
                 var timestamp = contentChange.timestamp();
 
-                if (change instanceof Git.ContentChange.InsertContent) {
+                if (change instanceof Git.Content.InsertContent) {
                     // Handle insertion (new content or adding to existing)
-                    Git.ContentChange.InsertContent insert = (Git.ContentChange.InsertContent) change;
+                    Git.Content.InsertContent insert = (Git.Content.InsertContent) change;
                     String content = String.join("\n", insert.lines());
 
                     if (!result.containsKey(taskId)) {
@@ -173,9 +173,9 @@ class DiffServiceTest {
                         result.put(taskId, List.of(createCheckpointData(taskId, newContent, timestamp)));
                     }
                 }
-                else if (change instanceof Git.ContentChange.RemoveContent) {
+                else if (change instanceof Git.Content.RemoveContent) {
                     // Handle removal
-                    Git.ContentChange.RemoveContent remove = (Git.ContentChange.RemoveContent) change;
+                    Git.Content.RemoveContent remove = (Git.Content.RemoveContent) change;
 
                     if (result.containsKey(taskId)) {
                         // Check if this is a complete removal
@@ -204,9 +204,9 @@ class DiffServiceTest {
                         }
                     }
                 }
-                else if (change instanceof Git.ContentChange.ReplaceContent) {
+                else if (change instanceof Git.Content.ReplaceContent) {
                     // Handle replacement
-                    Git.ContentChange.ReplaceContent replace = (Git.ContentChange.ReplaceContent) change;
+                    Git.Content.ReplaceContent replace = (Git.Content.ReplaceContent) change;
 
                     if (result.containsKey(taskId)) {
                         // Apply removal then insertion

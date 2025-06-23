@@ -144,17 +144,17 @@ public class DiffService {
         return createDiffFromFactory(newValue, c -> {
             var s  = new String(c.checkpoint(), Charset.defaultCharset());
             String[] lineSep = s.split(System.lineSeparator());
-            Git.ContentChange co = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(0, lineSep.length), Arrays.asList(lineSep));
+            Git.Content co = new Git.Content.InsertContent(new Git.Content.DiffRangeItem(0, lineSep.length), Arrays.asList(lineSep));
             return co;
         }, taskId);
     }
 
     private CheckpointDataDiff.CheckpointDataDiffItem createDiffFromFactory(List<CheckpointDao.CheckpointData> newValue,
-                                                                            Function<CheckpointDao.CheckpointData, Git.ContentChange> factory,
+                                                                            Function<CheckpointDao.CheckpointData, Git.Content> factory,
                                                                             String taskId) {
         var f = newValue.stream()
                 .map(cd -> {
-                    Git.ContentChange c = factory.apply(cd);
+                    Git.Content c = factory.apply(cd);
                     return new CheckpointDataDiff.ContentChangeDiff(c, cd.checkpointNs());
                 })
                 .toList();
@@ -168,7 +168,7 @@ public class DiffService {
         return createDiffFromFactory(oldValue, c -> {
             var s  = new String(c.checkpoint(), Charset.defaultCharset());
             var lineSep = s.split(System.lineSeparator());
-            Git.ContentChange co = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(0, lineSep.length), new ArrayList<>());
+            Git.Content co = new Git.Content.RemoveContent(new Git.Content.DiffRangeItem(0, lineSep.length), new ArrayList<>());
             return co;
         }, taskId);
     }
@@ -199,12 +199,12 @@ public class DiffService {
                         var found = iStr.getTarget();
                         var foundSrc = iStr.getSource();
                         yield new CheckpointDataDiff.ContentChangeDiff(
-                                new Git.ContentChange.ReplaceContent(buildRemove(foundSrc), buildInsert(found)), maxTimestamp);
+                                new Git.Content.ReplaceContent(buildRemove(foundSrc), buildInsert(found)), maxTimestamp);
                     }
                     case DeleteDelta r -> {
                         var iStr = (DeleteDelta<String>) r;
                         var found = iStr.getSource();
-                        Git.ContentChange.RemoveContent remove = buildRemove(found);
+                        Git.Content.RemoveContent remove = buildRemove(found);
                         yield new CheckpointDataDiff.ContentChangeDiff(remove, maxTimestamp);
 
                     }
@@ -239,15 +239,15 @@ public class DiffService {
         return found;
     }
 
-    private static Git.ContentChange.@NotNull RemoveContent buildRemove(Chunk<String> found) {
+    private static Git.Content.@NotNull RemoveContent buildRemove(Chunk<String> found) {
         int changePosition = found.getPosition();
-        Git.ContentChange.RemoveContent remove
-                = new Git.ContentChange.RemoveContent(new Git.ContentChange.DiffRangeItem(changePosition, found.size()), new ArrayList<>());
+        Git.Content.RemoveContent remove
+                = new Git.Content.RemoveContent(new Git.Content.DiffRangeItem(changePosition, found.size()), new ArrayList<>());
         return remove;
     }
 
-    private static Git.ContentChange.@NotNull InsertContent buildInsert(Chunk<String> found) {
-        var remove = new Git.ContentChange.InsertContent(new Git.ContentChange.DiffRangeItem(found.getPosition(), found.size()), found.getLines());
+    private static Git.Content.@NotNull InsertContent buildInsert(Chunk<String> found) {
+        var remove = new Git.Content.InsertContent(new Git.Content.DiffRangeItem(found.getPosition(), found.size()), found.getLines());
         return remove;
     }
 
