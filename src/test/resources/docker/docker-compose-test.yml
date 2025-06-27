@@ -1,25 +1,25 @@
 services:
-  cdc-agents-stream-db:
+  cdc-agents-stream-db-test:
     image: localhost:5001/postgres-pgvector
-    container_name: cdc-agents-stream-db
+    container_name: cdc-agents-stream-db-test
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5488:5432"
+      - "5489:5432"
     volumes:
-      - cdc-agents-stream-test:/var/lib/postgresql/data
-  cdc-agents-stream-db-sub:
+      - cdc-agents-stream-test-db:/var/lib/postgresql/data
+  cdc-agents-stream-db-sub-test:
     image: localhost:5001/postgres-pgvector
-    container_name: cdc-agents-stream-db-sub
+    container_name: cdc-agents-stream-db-sub-test
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5487:5432"
+      - "5490:5432"
     volumes:
-      - cdc-agents-stream-test-sub:/var/lib/postgresql/data
+      - cdc-agents-stream-test-sub-db:/var/lib/postgresql/data
 
 volumes:
-  cdc-agents-stream-test:
-  cdc-agents-stream-test-sub:
+  cdc-agents-stream-test-db:
+  cdc-agents-stream-test-sub-db:

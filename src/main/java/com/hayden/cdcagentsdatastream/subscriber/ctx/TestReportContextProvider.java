@@ -97,7 +97,7 @@ public class TestReportContextProvider implements ContextProvider {
         }
 
         // TODO: should zip the whole parent directory and save.
-        FileUtils.doOnFilesRecursive(registrationDir, path -> {
+        if (!FileUtils.doOnFilesRecursive(registrationDir, path -> {
             try {
                 if (path.toFile().isFile()) {
                     String content = Files.readString(path);
@@ -109,7 +109,9 @@ public class TestReportContextProvider implements ContextProvider {
             }
 
             return true;
-        });
+        })) {
+            log.error("Error doing put.");
+        }
 
         return reportFiles;
     }
