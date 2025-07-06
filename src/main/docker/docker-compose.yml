@@ -1,6 +1,6 @@
 services:
   cdc-agents-stream-db:
-    image: localhost:5001/postgres-pgvector
+    image: localhost:5001/postgres-pgvector-15
     container_name: cdc-agents-stream-db
     environment:
       POSTGRES_USER: postgres
@@ -8,9 +8,10 @@ services:
     ports:
       - "5488:5432"
     volumes:
-      - cdc-agents-stream-test:/var/lib/postgresql/data
+      - /Users/hayde/db/cdc-agents-subscriber/data:/var/lib/postgresql/data
+
   cdc-agents-stream-db-sub:
-    image: localhost:5001/postgres-pgvector
+    image: localhost:5001/postgres-pgvector-15
     container_name: cdc-agents-stream-db-sub
     environment:
       POSTGRES_USER: postgres
