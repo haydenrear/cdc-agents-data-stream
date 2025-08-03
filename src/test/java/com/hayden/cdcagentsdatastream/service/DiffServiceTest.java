@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
-import com.hayden.commitdiffmodel.model.Git;
+import com.hayden.commitdiffcontext.model.Git;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
