@@ -26,7 +26,9 @@ import org.springframework.boot.sql.init.DatabaseInitializationSettings;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
@@ -74,6 +76,11 @@ public class CdcSubscriberConfig {
     @ConfigurationProperties("spring.datasource.function-calling")
     public DataSource cdcFunctionCallingLock() {
         return DataSourceBuilder.create().build();
+    }
+
+    @Bean(name = {"txManager", "transactionManager"})
+    public PlatformTransactionManager txManager(DbDataSourceTrigger dbDataSourceTrigger) {
+        return new DataSourceTransactionManager(dataSource(dbDataSourceTrigger)); // IMPORTANT: routing DS here
     }
 
     @Bean
