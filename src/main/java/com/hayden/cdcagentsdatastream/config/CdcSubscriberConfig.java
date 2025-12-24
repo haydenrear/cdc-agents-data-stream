@@ -1,5 +1,7 @@
 package com.hayden.cdcagentsdatastream.config;
-
+import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextConfig;
+import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextTelemetryLoggingConfig;
+import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextDisableLoggingConfig;
 import com.google.common.collect.Lists;
 import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
@@ -8,9 +10,7 @@ import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.service.IdeDataStreamService;
-import com.hayden.commitdiffcontext.config.CommitDiffContextConfig;
-import com.hayden.commitdiffcontext.config.CommitDiffContextDisableLoggingConfig;
-import com.hayden.commitdiffcontext.config.CommitDiffContextTelemetryLoggingConfig;
+import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextDisableLoggingConfig;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import com.hayden.persistence.config.CdcConfig;
 import com.hayden.persistence.lock.AdvisoryLock;

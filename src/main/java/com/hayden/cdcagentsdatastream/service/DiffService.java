@@ -16,7 +16,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.hayden.commitdiffcontext.model.Git;
+import com.hayden.commitdiffcontext.git.res.Git;
 import com.hayden.utilitymodule.MapFunctions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

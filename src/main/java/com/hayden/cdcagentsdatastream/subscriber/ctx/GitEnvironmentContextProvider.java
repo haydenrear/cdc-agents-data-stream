@@ -1,11 +1,11 @@
 package com.hayden.cdcagentsdatastream.subscriber.ctx;
 
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
+import com.hayden.commitdiffcontext.context.entity.CommitDiffContext;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.util.GitRepositoryScanner;
-import com.hayden.commitdiffcontext.entity.CommitDiffContext;
-import com.hayden.commitdiffcontext.parsediffs.StagedFileService;
-import com.hayden.commitdiffcontext.repo.CdcChatTraceRepository;
+import com.hayden.commitdiffcontext.context.StagedFileService;
+import com.hayden.commitdiffcontext.context.repo.CdcChatTraceRepository;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

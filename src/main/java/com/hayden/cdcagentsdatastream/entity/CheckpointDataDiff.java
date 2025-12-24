@@ -1,6 +1,6 @@
 package com.hayden.cdcagentsdatastream.entity;
 
-import com.hayden.commitdiffcontext.model.Git;
+import com.hayden.commitdiffcontext.git.res.Git;
 import lombok.*;
 
 import java.sql.Timestamp;
