@@ -12,7 +12,7 @@ spring:
     compose:
       enabled: true
       file: classpath:docker/docker-compose-test.yml
-      lifecycle-management: start_only
+      lifecycle-management: start_and_stop
       readiness:
         wait: always
       skip:
@@ -24,14 +24,14 @@ spring:
       driver-class-name: org.postgresql.Driver
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      jdbc-url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
     cdc-data-stream:
       driver-class-name: org.postgresql.Driver
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      jdbc-url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
     cdc-subscriber:
       driver-class-name: org.postgresql.Driver
       username: postgres
@@ -42,12 +42,12 @@ spring:
       driver-class-name: org.postgresql.Driver
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
-      url: jdbc:postgresql://localhost:5489/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      jdbc-url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
+      url: jdbc:postgresql://localhost:5492/postgres?tcpKeepAlive=true&connectTimeout=10&socketTimeout=0
 
   jpa:
     hibernate:
-      ddl-auto: create-drop  # Use create-drop for tests to reset DB between runs
+      ddl-auto: create-drop # Use create-drop for tests to reset DB between runs
       format_sql: true
     show-sql: false
   liquibase:

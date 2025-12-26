@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5489:5432"
+      - "5492:5432"
     volumes:
       - cdc-agents-stream-test-db:/var/lib/postgresql/data
   cdc-agents-stream-db-sub-test:
