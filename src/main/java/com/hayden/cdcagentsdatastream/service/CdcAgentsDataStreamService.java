@@ -28,12 +28,10 @@ public class CdcAgentsDataStreamService {
     private DbDataSourceTrigger dbDataSourceTrigger;
 
 
-//    @Transactional
     @StripedLock
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         var checkpointData = retrieveAndStoreCheckpoint(threadId, checkpointId);
-        return dataStreamService.retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
-                .flatMap(ds -> dataStreamService.doReadStreamItem(ds, this.dao));
+        return dataStreamService.doReadStreamItem(threadId, checkpointData, dao);
     }
 
 

@@ -1,5 +1,4 @@
 package com.hayden.cdcagentsdatastream.config;
-import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextConfig;
 import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextTelemetryLoggingConfig;
 import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextDisableLoggingConfig;
 import com.google.common.collect.Lists;
@@ -10,12 +9,13 @@ import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.service.CdcAgentsDataStreamService;
 import com.hayden.cdcagentsdatastream.service.IdeDataStreamService;
-import com.hayden.commitdiffcontext.cdc_config.CommitDiffContextDisableLoggingConfig;
 import com.hayden.persistence.cdc.CdcSubscriber;
 import com.hayden.persistence.config.CdcConfig;
 import com.hayden.persistence.lock.AdvisoryLock;
 import com.hayden.utilitymodule.db.DbDataSourceTrigger;
+import com.hayden.utilitymodule.db.WithDbAspect;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.autoconfigure.sql.init.SqlDataSourceScriptDatabaseInitializer;
@@ -40,15 +40,13 @@ import java.util.function.BiFunction;
 
 @ComponentScan(
         basePackageClasses = {
-                CdcConfig.class, CdcSubscriber.class, CommitDiffContextConfig.class
+                CdcConfig.class, CdcSubscriber.class
         },
-        basePackages = {"com.hayden.commitdiffcontext", "com.hayden.utilitymodule.concurrent.striped"})
+        basePackages = {"com.hayden.utilitymodule.concurrent.striped"})
 @Import({CommitDiffContextTelemetryLoggingConfig.class, CommitDiffContextDisableLoggingConfig.class, DbDataSourceTrigger.class,
-        AdvisoryLock.class})
-@EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamRepository.class},
-                       basePackages = "com.hayden.commitdiffcontext")
-@EntityScan(basePackageClasses = CdcAgentsDataStream.class,
-            basePackages = "com.hayden.commitdiffmodel")
+        AdvisoryLock.class, WithDbAspect.class})
+@EnableJpaRepositories(basePackageClasses = {CdcAgentsDataStreamRepository.class})
+@EntityScan(basePackageClasses = CdcAgentsDataStream.class)
 @Configuration
 @Slf4j
 public class CdcSubscriberConfig {
@@ -78,10 +76,11 @@ public class CdcSubscriberConfig {
         return DataSourceBuilder.create().build();
     }
 
-    @Bean(name = {"txManager", "transactionManager"})
-    public PlatformTransactionManager txManager(DbDataSourceTrigger dbDataSourceTrigger) {
-        return new DataSourceTransactionManager(dataSource(dbDataSourceTrigger)); // IMPORTANT: routing DS here
-    }
+//    @Bean(name = {"txManager", "transactionManager"})
+//    public PlatformTransactionManager txManager(DbDataSourceTrigger dbDataSourceTrigger) {
+//        DataSource dataSource = dataSource(dbDataSourceTrigger);
+//        return new DataSourceTransactionManager(dataSource);
+//    }
 
     @Bean
     @Primary
@@ -91,11 +90,7 @@ public class CdcSubscriberConfig {
             @Override
             protected Object determineCurrentLookupKey() {
                 var curr = dbDataSourceTrigger.currentKey();
-                String found = null;
-                if (TransactionSynchronizationManager.hasResource("data-source-key")) {
-                    found = (String) TransactionSynchronizationManager.getResource("data-source-key");
-                }
-                return found == null ? curr : found;
+                return curr;
             }
         };
 
@@ -120,31 +115,23 @@ public class CdcSubscriberConfig {
     }
 
     @Bean
-    @DependsOn("initializeDataSource")
     public CommandLineRunner kickstart(CdcAgentsDataStreamService cdcStreamService,
                                        IdeDataStreamService ideStreamService,
                                        CdcCheckpointDao checkpointDao,
                                        IdeCheckpointDao ideCheckpointDao,
                                        CdcAgentsDataStreamRepository dataStreamRepository,
                                        DbDataSourceTrigger trigger) {
+        initializeDataSource(trigger);
         return args -> {
             log.info("Starting checkpoint data processing...");
 
-            var processedNum = trigger.doOnKey(sKey -> {
-                sKey.setKey("cdc-subscriber");
-                return doSave(cdcStreamService::doReadStreamItem, checkpointDao, dataStreamRepository, trigger);
-            });
-
+            var processedNum = doSave(cdcStreamService::doReadStreamItem, checkpointDao, dataStreamRepository, trigger);
 
             log.info("Finished CDC checkpoint data processing - processed {} checkpoints into db.", processedNum);
 
-            processedNum = trigger.doOnKey(sKey -> {
-                sKey.setKey("cdc-subscriber");
-                return doSave(ideStreamService::doReadStreamItem, ideCheckpointDao, dataStreamRepository, trigger);
-            });
+            processedNum = doSave(ideStreamService::doReadStreamItem, ideCheckpointDao, dataStreamRepository, trigger);
 
             log.info("Finished IDE checkpoint data processing - processed {} checkpoints into db.", processedNum);
-
         };
     }
 
@@ -187,11 +174,9 @@ public class CdcSubscriberConfig {
         return processedNum;
     }
 
-    @Bean
-    public CommandLineRunner initializeDataSource(DbDataSourceTrigger trigger) {
+    public void initializeDataSource(DbDataSourceTrigger trigger) {
         doPerformInitializationWithTrigger(trigger, "cdc-subscriber", "cdc-agents-schema.sql");
         doPerformInitializationWithTrigger(trigger, "cdc-subscriber", "ide-schema.sql");
-        return args -> {};
     }
 
     private void doPerformInitializationWithTrigger(DbDataSourceTrigger trigger, String dbKey, String schemaPath) {

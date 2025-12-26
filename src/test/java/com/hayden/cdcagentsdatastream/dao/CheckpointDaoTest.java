@@ -80,7 +80,7 @@ class CheckpointDaoTest {
         CyclicBarrier specialCyclicBarrier = new CyclicBarrier(2);
         AtomicInteger i = new AtomicInteger();
         final String threadSessionId = UUID.randomUUID().toString();
-        SynchronousQueue<String> checkpoints = new SynchronousQueue<>();
+        Queue<String> checkpoints = new ConcurrentLinkedDeque<>();
         Executors.newScheduledThreadPool(1)
                 .scheduleAtFixedRate(() -> dbDataSourceTrigger.doWithKey(sKey -> {
                     sKey.setKey("cdc-subscriber");
@@ -129,13 +129,13 @@ class CheckpointDaoTest {
 
         while (num.get() < 20) {
 
-            var nextCheckpoint = checkpoints.poll(600, TimeUnit.MILLISECONDS);
+            var nextCheckpoint = checkpoints.poll();
             log.info("Checkpoint {}", nextCheckpoint);
 
             Optional<CdcAgentsDataStream> bySessionId;
 
             while ((bySessionId = cdcAgentsDataStreamRepository.findBySessionId(threadSessionId)).isEmpty()) {
-                Thread.sleep(30);
+                Thread.sleep(1000);
             }
 
             if (time == null) {

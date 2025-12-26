@@ -3,18 +3,21 @@ package com.hayden.cdcagentsdatastream.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.cdcagentsdatastream.dao.CdcCheckpointDao;
 import com.hayden.cdcagentsdatastream.dao.CheckpointDao;
+import com.hayden.cdcagentsdatastream.dao.IdeCheckpointDao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.model.BaseMessage;
 import com.hayden.cdcagentsdatastream.repository.CdcAgentsDataStreamRepository;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
-import com.hayden.cdcagentsdatastream.trigger.DbTriggerRoute;
 import com.hayden.utilitymodule.MapFunctions;
+import com.hayden.utilitymodule.db.WithDb;
 import com.hayden.utilitymodule.result.Result;
 import com.hayden.utilitymodule.result.error.SingleError;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,18 +39,18 @@ public class DataStreamService {
                                             CdcAgentsDataStream beforeUpdate) { }
 
 
-//    @Transactional
-    @DbTriggerRoute(route = "cdc-data-stream")
+    @Transactional
     public Optional<CdcAgentsDataStream> doReadStreamItem(CdcAgentsDataStreamUpdate sUpdate,
                                                           CheckpointDao checkpointDao) {
         return contextService.addCtx(sUpdate, checkpointDao)
                 .map(this::doSave);
     }
 
+
     public CdcAgentsDataStream doSave(ContextService.WithContextAdded updatable) {
         CdcAgentsDataStream toSave = updatable.withCtx();
         toSave.setCdcContent(updatable.update().afterUpdate());
-        return dataStreamRepository.save(toSave);
+        return dataStreamRepository.saveAndFlush(toSave);
     }
 
     /**
@@ -92,16 +95,25 @@ public class DataStreamService {
     /**
      * Finds a data stream by session ID or creates a new one if it doesn't exist.
      *
-     * @param sessionId the session ID to find or create a data stream for
      * @return the existing or newly created data stream
      */
-    public CdcAgentsDataStream findOrCreateDataStream(String sessionId) {
-        return dataStreamRepository.findBySessionId(sessionId)
-                .orElseGet(() -> {
-                    CdcAgentsDataStream newDataStream = new CdcAgentsDataStream();
-                    newDataStream.setSessionId(sessionId);
-                    return dataStreamRepository.save(newDataStream);
-                });
+
+    @WithDb("cdc-data-stream")
+//    @Transactional
+    public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId,
+                                                          List<CheckpointDao.CheckpointData> checkpointData,
+                                                          CdcCheckpointDao dao) {
+        return retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
+                .flatMap(ds -> doReadStreamItem(ds, dao));
+    }
+
+    @WithDb("cdc-data-stream")
+//    @Transactional
+    public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId,
+                                                          List<CheckpointDao.CheckpointData> checkpointData,
+                                                          IdeCheckpointDao dao) {
+        return retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
+                .flatMap(ds -> doReadStreamItem(ds, dao));
     }
 
     /**
@@ -110,8 +122,7 @@ public class DataStreamService {
      * @param threadId the thread ID of the checkpoint
      * @return an Optional containing the deserialized checkpoint data
      */
-    @DbTriggerRoute(route = "cdc-data-stream")
-    public Optional<CdcAgentsDataStreamUpdate> retrieveAndStoreCheckpoint(List<CheckpointDao.CheckpointData> checkpointBlobs,
+    private Optional<CdcAgentsDataStreamUpdate> retrieveAndStoreCheckpoint(List<CheckpointDao.CheckpointData> checkpointBlobs,
                                                                           String threadId,
                                                                           CheckpointDao checkpointData) {
         // Find or create the data stream
@@ -129,7 +140,7 @@ public class DataStreamService {
                 .stream());
 
 
-        CdcAgentsDataStream dataStream = this.findOrCreateDataStream(threadId);
+        CdcAgentsDataStream dataStream = dataStreamRepository.findOrCreateDataStream(threadId);
 
         Map<String, List<CheckpointDao.CheckpointData>> toAddTo = new HashMap<>();
 

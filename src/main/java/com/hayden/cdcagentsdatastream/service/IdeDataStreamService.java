@@ -34,8 +34,7 @@ public class IdeDataStreamService {
     @StripedLock
     public Optional<CdcAgentsDataStream> doReadStreamItem(String threadId, String checkpointId) {
         var checkpointData = retrieveAndStoreCheckpoint(threadId, checkpointId);
-        return dataStreamService.retrieveAndStoreCheckpoint(checkpointData, threadId, dao)
-                .flatMap(ds -> dataStreamService.doReadStreamItem(ds, dao));
+        return dataStreamService.doReadStreamItem(threadId, checkpointData, dao);
     }
 
 

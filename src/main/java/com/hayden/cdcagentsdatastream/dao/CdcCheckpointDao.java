@@ -3,7 +3,8 @@ package com.hayden.cdcagentsdatastream.dao;
 import com.hayden.cdcagentsdatastream.entity.CdcAgentsDataStream;
 import com.hayden.cdcagentsdatastream.entity.CheckpointDataDiff;
 import com.hayden.cdcagentsdatastream.subscriber.ctx.ContextService;
-import com.hayden.cdcagentsdatastream.trigger.DbTriggerRoute;
+import com.hayden.utilitymodule.db.DbDataSourceTrigger;
+import com.hayden.utilitymodule.db.WithDb;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +20,8 @@ import java.util.*;
 public class CdcCheckpointDao implements CheckpointDao {
 
     private final JdbcTemplate jdbcTemplate;
+
+    private final DbDataSourceTrigger trigger;
 
     @Override
     public Map<String, List<CheckpointData>> retrieveDiffContent(CdcAgentsDataStream dataStream) {
@@ -45,7 +48,6 @@ public class CdcCheckpointDao implements CheckpointDao {
         return CheckpointDao.skipParsingCheckpoint(thisTask, checkpointNs);
     }
 
-    @DbTriggerRoute(route = "cdc-subscriber")
     public List<CheckpointData> doQueryCheckpointBlobs(String threadId, String checkpointId) {
         var taskPaths = queryTaskPaths(threadId, checkpointId);
 
@@ -54,7 +56,7 @@ public class CdcCheckpointDao implements CheckpointDao {
                 .toList();
     }
 
-    @DbTriggerRoute(route = "cdc-subscriber")
+    @WithDb("cdc-subscriber")
     public @NotNull List<LatestCheckpoints> doQueryLatestCheckpoint(String threadId, String taskId) {
         var ck = jdbcTemplate.query(
                 """
@@ -87,7 +89,7 @@ public class CdcCheckpointDao implements CheckpointDao {
         return ck;
     }
 
-    @DbTriggerRoute(route = "cdc-subscriber")
+    @WithDb("cdc-subscriber")
     public List<LatestCheckpoints> queryLatestCheckpoints() {
         return allTaskPaths().stream()
                 .flatMap(taskPath -> {
@@ -121,7 +123,7 @@ public class CdcCheckpointDao implements CheckpointDao {
 
     }
 
-    @DbTriggerRoute(route = "cdc-subscriber")
+    @WithDb("cdc-subscriber")
     public @NotNull List<CheckpointData> queryCheckpointBlobForTask(String threadId, String checkpointId, String tp) {
         var checkpointBlobs = jdbcTemplate.query(
                 """

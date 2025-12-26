@@ -19,10 +19,10 @@ public class GitEnvironmentContextProvider implements ContextProvider {
 
     @Autowired
     private CdcAgentsDataStreamRepository dataStreamRepository;
-    @Autowired(required = false)
-    private StagedFileService stagedFileService;
-    @Autowired
-    private CdcChatTraceRepository cdcChatTraceRepository;
+//    @Autowired(required = false)
+//    private StagedFileService stagedFileService;
+//    @Autowired
+//    private CdcChatTraceRepository cdcChatTraceRepository;
     @Autowired
     private DbDataSourceTrigger trigger;
     @Autowired
@@ -67,10 +67,10 @@ public class GitEnvironmentContextProvider implements ContextProvider {
 //            contextItem.setCommitHashes(commitHashes);
 
             // Try to get staged data if available
-            if (stagedFileService != null && commitDiffContext != null) {
+//            if (stagedFileService != null && commitDiffContext != null) {
                 // Note: This would need to be implemented based on your specific requirements
                 // contextItem.setStagedData(collectStagedData(commitDiffContext));
-            }
+//            }
 
             // Save the withCtx context
             return Optional.of(contextItem.build());

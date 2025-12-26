@@ -1,6 +1,6 @@
 services:
   cdc-agents-stream-db-test:
-    image: localhost:5001/postgres-pgvector
+    image: localhost:5005/postgres-pgvector
     container_name: cdc-agents-stream-db-test
     environment:
       POSTGRES_USER: postgres
@@ -10,7 +10,7 @@ services:
     volumes:
       - cdc-agents-stream-test-db:/var/lib/postgresql/data
   cdc-agents-stream-db-sub-test:
-    image: localhost:5001/postgres-pgvector
+    image: localhost:5005/postgres-pgvector
     container_name: cdc-agents-stream-db-sub-test
     environment:
       POSTGRES_USER: postgres
